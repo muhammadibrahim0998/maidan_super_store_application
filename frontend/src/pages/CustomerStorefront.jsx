@@ -24,6 +24,7 @@ import { SupplierPurchaseSummaryCard } from '../components/SupplierPurchaseSumma
 import { CountUpNumber } from '../components/CountUpNumber.jsx';
 import { ShopAdminCharts } from '../components/ShopAdminCharts.jsx';
 import { ProductHeroSlider, CustomerDashboardCharts } from '../components/CustomerDashboardCharts.jsx';
+import { AuthBackgroundSlider } from '../components/auth/AuthBackgroundSlider.jsx';
 import { updateItem, deleteItem as apiDeleteItem, createItem, createSale, getSales, getShopOrders, deleteSale, settleCreditSale } from '../services/api.js';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -74,119 +75,116 @@ function CustomerAuthView({ shopInfo }) {
   };
 
   return (
-    <div className="min-h-screen bg-[#111827] text-white flex flex-col justify-center items-center p-4 relative overflow-hidden selection:bg-emerald-500/30">
-      {/* Background Decorative Glows */}
-      <div className="absolute top-1/4 -left-20 w-96 h-96 bg-emerald-600/10 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-[#2D5A27]/20 rounded-full blur-[120px] pointer-events-none" />
+    <div className="min-h-screen bg-slate-950 text-white flex flex-col justify-center items-center p-4 relative overflow-x-hidden overflow-y-auto selection:bg-emerald-500/30">
+      {/* ─── 5-Image Real Perfume Dynamic Slider in Background (2s interval) ─── */}
+      <AuthBackgroundSlider />
 
-      <div className="w-full max-w-md z-10 animate-in zoom-in-95 duration-500">
+      <div className="w-full max-w-[420px] z-10 animate-in fade-in zoom-in-95 duration-500 flex flex-col items-center py-4">
         <button
           onClick={() => navigate('/shop')}
-          className="mb-6 inline-flex items-center gap-2 text-xs font-bold text-emerald-400 hover:text-emerald-300 transition-colors uppercase tracking-widest bg-emerald-950/60 px-4 py-2 rounded-full border border-emerald-800/40 backdrop-blur-md"
+          className="mb-4 inline-flex items-center gap-2 text-xs font-bold text-emerald-400 hover:text-emerald-300 transition-colors uppercase tracking-widest bg-slate-950/80 px-4 py-2 rounded-full border border-emerald-500/30 backdrop-blur-md shadow-lg"
         >
           <ArrowLeft className="w-4 h-4" /> Back to Store Selector
         </button>
 
-        <div className="bg-[#1E293B] border border-slate-700/60 rounded-[2.5rem] p-8 sm:p-10 shadow-2xl relative overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#2D5A27] via-emerald-500 to-[#1B3817]" />
+        <div className="w-full bg-slate-950/85 backdrop-blur-2xl border border-slate-700/80 rounded-3xl p-6 sm:p-8 shadow-[0_25px_70px_rgba(0,0,0,0.9)] relative overflow-hidden text-white">
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-amber-500 via-emerald-500 to-amber-500" />
 
-          <div className="text-center mb-8">
-            <div className="relative inline-block mb-4">
-              <div className="p-4 bg-white rounded-2xl shadow-inner">
+          <div className="text-center mb-6">
+            <div className="relative inline-block mb-3">
+              <div className="p-2.5 bg-white/95 rounded-2xl shadow-inner inline-flex">
                 {shopInfo?.logoUrl ? (
-                  <img src={shopInfo.logoUrl} alt={shopInfo.name} className="w-12 h-12 rounded-xl object-contain" />
+                  <img src={shopInfo.logoUrl} alt={shopInfo.name} className="w-10 h-10 rounded-xl object-contain" />
                 ) : (
-                  <img src={companyLogo} alt="Maidan Agri Foods" className="w-12 h-12 object-contain rounded-xl" />
+                  <img src={companyLogo} alt="Maidan Agri Foods" className="w-10 h-10 object-contain rounded-xl" />
                 )}
               </div>
             </div>
-            <h1 className="text-2xl font-black tracking-tight text-white uppercase italic">{shopInfo?.name || 'Customer Portal'}</h1>
-            <p className="text-emerald-400 text-[10px] font-black uppercase tracking-[0.2em] mt-1.5">
+            <h1 className="text-xl font-black tracking-tight text-white uppercase italic">{shopInfo?.name || 'Customer Portal'}</h1>
+            <p className="text-emerald-400 text-[10px] font-black uppercase tracking-[0.2em] mt-1">
               Customer Store Login / Register
             </p>
           </div>
 
-          <div className="flex bg-slate-900/80 rounded-2xl p-1.5 mb-6 border border-slate-700/50">
+          <div className="flex bg-slate-900 rounded-2xl p-1 mb-5 border border-slate-700">
             <button
               type="button"
               onClick={() => { setMode('register'); setError(''); setSuccess(''); }}
-              className={`flex-1 py-3 rounded-xl font-black text-[11px] uppercase tracking-widest transition-all ${mode === 'register' ? 'bg-[#1B3817] text-white border-t border-t-white/20 border-b-4 border-b-[#12290D] shadow-lg' : 'text-slate-400 hover:text-white'
-                }`}
+              className={`flex-1 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${mode === 'register' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}
             >
               1. Register
             </button>
             <button
               type="button"
               onClick={() => { setMode('login'); setError(''); setSuccess(''); }}
-              className={`flex-1 py-3 rounded-xl font-black text-[11px] uppercase tracking-widest transition-all ${mode === 'login' ? 'bg-[#1B3817] text-white border-t border-t-white/20 border-b-4 border-b-[#12290D] shadow-lg' : 'text-slate-400 hover:text-white'
-                }`}
+              className={`flex-1 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${mode === 'login' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}
             >
               2. Sign In
             </button>
           </div>
 
           {error && (
-            <div className="flex items-center gap-2.5 p-3.5 mb-5 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-rose-300 text-xs font-bold">
+            <div className="flex items-center gap-2.5 p-3 mb-4 bg-rose-500/15 border border-rose-500/30 rounded-xl text-rose-300 text-xs font-bold">
               <AlertCircle className="w-4 h-4 flex-shrink-0 text-rose-400" />
               {error}
             </div>
           )}
           {success && (
-            <div className="flex items-center gap-2.5 p-3.5 mb-5 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl text-emerald-300 text-xs font-bold">
+            <div className="flex items-center gap-2.5 p-3 mb-4 bg-emerald-500/15 border border-emerald-500/30 rounded-xl text-emerald-300 text-xs font-bold">
               <CheckCircle className="w-4 h-4 flex-shrink-0 text-emerald-400" />
               {success}
             </div>
           )}
 
-          <form onSubmit={submit} className="space-y-4">
+          <form onSubmit={submit} className="space-y-3.5">
             {mode === 'register' && (
-              <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1">Full Name</label>
+              <div className="space-y-1">
+                <label className="text-[9px] font-black text-slate-300 uppercase tracking-widest pl-1">Full Name</label>
                 <div className="relative group">
-                  <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
                     type="text"
                     placeholder="Enter your full name"
                     value={form.fullName}
                     onChange={handle('fullName')}
                     required
-                    className="w-full bg-slate-900/60 border border-slate-700/60 focus:border-emerald-500 rounded-2xl py-3.5 pl-11 pr-4 text-white text-xs font-bold placeholder:text-slate-500 outline-none transition-all"
+                    className="w-full bg-slate-900 border border-slate-700 focus:border-emerald-500 rounded-xl py-2.5 pl-10 pr-4 text-white text-xs font-bold placeholder:text-slate-500 outline-none transition-all"
                   />
                 </div>
               </div>
             )}
 
-            <div className="space-y-1.5">
-              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1">Email Address</label>
+            <div className="space-y-1">
+              <label className="text-[9px] font-black text-slate-300 uppercase tracking-widest pl-1">Email Address</label>
               <div className="relative group">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
                   type="email"
                   placeholder="customer@example.com"
                   value={form.email}
                   onChange={handle('email')}
                   required
-                  className="w-full bg-slate-900/60 border border-slate-700/60 focus:border-emerald-500 rounded-2xl py-3.5 pl-11 pr-4 text-white text-xs font-bold placeholder:text-slate-500 outline-none transition-all"
+                  className="w-full bg-slate-900 border border-slate-700 focus:border-emerald-500 rounded-xl py-2.5 pl-10 pr-4 text-white text-xs font-bold placeholder:text-slate-500 outline-none transition-all"
                 />
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1">Password</label>
+            <div className="space-y-1">
+              <label className="text-[9px] font-black text-slate-300 uppercase tracking-widest pl-1">Password</label>
               <div className="relative group">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
                   type={showPw ? 'text' : 'password'}
                   placeholder="••••••••"
                   value={form.password}
                   onChange={handle('password')}
                   required
-                  className="w-full bg-slate-900/60 border border-slate-700/60 focus:border-emerald-500 rounded-2xl py-3.5 pl-11 pr-12 text-white text-xs font-bold placeholder:text-slate-500 outline-none transition-all"
+                  className="w-full bg-slate-900 border border-slate-700 focus:border-emerald-500 rounded-xl py-2.5 pl-10 pr-11 text-white text-xs font-bold placeholder:text-slate-500 outline-none transition-all"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPw(p => !p)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
                 >
                   {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -196,7 +194,7 @@ function CustomerAuthView({ shopInfo }) {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-4 bg-[#1B3817] hover:bg-[#12290D] border-t border-t-white/20 border-b-4 border-b-[#12290D] disabled:opacity-50 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all shadow-lg active:translate-y-[2px] mt-4"
+              className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-xl font-black text-xs uppercase tracking-wider transition-all shadow-lg active:scale-[0.98] mt-2 cursor-pointer"
             >
               {loading ? (
                 mode === 'register' ? 'Registering...' : 'Signing In...'
@@ -206,7 +204,7 @@ function CustomerAuthView({ shopInfo }) {
             </button>
           </form>
 
-          <div className="mt-6 text-center pt-4 border-t border-slate-700/50">
+          <div className="mt-5 text-center pt-3 border-t border-slate-800">
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
               {mode === 'register' ? 'Already registered?' : "Need an account?"}
               <button
@@ -4968,11 +4966,11 @@ function StoreContent({ shopId }) {
             <div className="max-w-7xl mx-auto space-y-3">
 
               {/* ─── Header Banner (Clean White & Gray Aesthetic) ─── */}
-              <div className="relative border border-slate-200 rounded-xl sm:rounded-2xl px-4 py-3 sm:px-5 sm:py-4 shadow-sm flex items-center justify-between gap-4 overflow-hidden w-full bg-white text-slate-900">
-                <div className="relative z-10 flex items-center justify-between w-full gap-4 flex-wrap">
+              <div className="relative border border-slate-200 rounded-xl px-3.5 py-2 sm:px-4 sm:py-2.5 shadow-xs flex items-center justify-between gap-3 overflow-hidden w-full bg-white text-slate-900">
+                <div className="relative z-10 flex items-center justify-between w-full gap-3 flex-wrap">
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-700 text-[10px] font-black uppercase tracking-wider shrink-0 shadow-sm">
-                      <Sparkles className="w-3.5 h-3.5 text-amber-500" /> {user?.fullName || customer?.fullName || 'Customer'}
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-slate-700 text-[10px] font-black uppercase tracking-wider shrink-0 shadow-xs">
+                      <Sparkles className="w-3 h-3 text-amber-500" /> {user?.fullName || customer?.fullName || 'Customer'}
                     </span>
                     <h1 className="text-xs sm:text-sm font-black tracking-tight uppercase text-slate-900 truncate">
                       {activeView === 'dashboard' ? '📊 Customer Dashboard' : '📦 Products & Inventory Catalog'}
@@ -4982,11 +4980,11 @@ function StoreContent({ shopId }) {
                   {/* Right-Aligned Action Buttons with Tabs */}
                   <div className="flex items-center gap-2 ml-auto flex-wrap">
                     {/* View Switcher Tabs */}
-                    <div className="flex items-center p-1 bg-slate-100 rounded-2xl border border-slate-200">
+                    <div className="flex items-center p-0.5 bg-slate-100 rounded-xl border border-slate-200">
                       <button
                         onClick={() => setActiveView('dashboard')}
-                        className={`px-3.5 py-1.5 rounded-xl font-black text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${activeView === 'dashboard'
-                          ? 'bg-slate-900 text-white shadow-md'
+                        className={`px-3 py-1 rounded-lg font-black text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${activeView === 'dashboard'
+                          ? 'bg-slate-900 text-white shadow-xs'
                           : 'text-slate-600 hover:text-slate-950'
                           }`}
                       >
@@ -4994,8 +4992,8 @@ function StoreContent({ shopId }) {
                       </button>
                       <button
                         onClick={() => setActiveView('products')}
-                        className={`px-3.5 py-1.5 rounded-xl font-black text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${activeView === 'products'
-                          ? 'bg-slate-900 text-white shadow-md'
+                        className={`px-3 py-1 rounded-lg font-black text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${activeView === 'products'
+                          ? 'bg-slate-900 text-white shadow-xs'
                           : 'text-slate-600 hover:text-slate-950'
                           }`}
                       >
@@ -5006,7 +5004,7 @@ function StoreContent({ shopId }) {
                     {isAdminUser && (
                       <button
                         onClick={() => setAddProductModal(true)}
-                        className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-2xl bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-xs font-black uppercase tracking-wider transition-all shadow-md border-b-2 border-amber-800 cursor-pointer"
+                        className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-xs font-black uppercase tracking-wider transition-all shadow-xs border-b-2 border-amber-800 cursor-pointer"
                       >
                         <Plus className="w-3.5 h-3.5 text-slate-950 stroke-[3]" />
                         <span>+ Add Product</span>
@@ -5018,29 +5016,29 @@ function StoreContent({ shopId }) {
 
               {/* ─── DASHBOARD VIEW ─── */}
               {activeView === 'dashboard' && (
-                <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="space-y-3.5 animate-in fade-in slide-in-from-bottom-2 duration-300">
 
                   {/* ─── SHOP ADMIN DASHBOARD (CLEAN & SUMMARIZED) ─── */}
                   {isAdminUser ? (
-                    <div className="space-y-5">
+                    <div className="space-y-3.5">
 
                       {/* ─── MASTER EXECUTIVE FINANCIAL SUMMARY CARD (CLEAN GRAY THEME) ─── */}
-                      <div className="bg-slate-100 border-2 border-slate-300/80 rounded-3xl p-5 sm:p-7 shadow-lg text-slate-900 space-y-6 relative overflow-hidden">
+                      <div className="bg-slate-200/70 border border-slate-300/90 rounded-2xl p-3.5 sm:p-4 shadow-sm text-slate-900 space-y-3 relative overflow-hidden">
 
                         {/* Top Header with Timeframe Filter */}
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-300 pb-4 relative z-10">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 border-b border-slate-300/80 pb-2.5 relative z-10">
                           <div>
-                            <div className="flex items-center gap-2 text-amber-600 text-xs font-black uppercase tracking-widest">
-                              <Sparkles className="w-4 h-4 text-amber-500 animate-pulse" />
-                              Executive Financial Summary Dashboard
+                            <div className="flex items-center gap-1.5 text-amber-700 text-[10px] font-black uppercase tracking-wider">
+                              <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                              Executive Financial Summary
                             </div>
-                            <h2 className="text-lg sm:text-2xl font-black text-slate-900 uppercase tracking-tight mt-1 flex items-center gap-2">
+                            <h2 className="text-base sm:text-lg font-black text-slate-900 uppercase tracking-tight flex items-center gap-2">
                               <span>Shop Performance Overview</span>
                             </h2>
                           </div>
 
                           {/* Timeframe Switcher */}
-                          <div className="flex items-center bg-white border border-slate-300 rounded-2xl p-1 shadow-sm gap-1">
+                          <div className="flex items-center bg-white border border-slate-300 rounded-xl p-0.5 shadow-xs gap-0.5">
                             {[
                               { id: 'DAY', label: 'Today' },
                               { id: 'MONTH', label: 'This Month' },
@@ -5050,9 +5048,9 @@ function StoreContent({ shopId }) {
                               <button
                                 key={t.id}
                                 onClick={() => setReportTimeframe(t.id)}
-                                className={`px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
+                                className={`px-2.5 py-1 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all cursor-pointer ${
                                   reportTimeframe === t.id
-                                    ? 'bg-slate-900 text-white shadow-md scale-105'
+                                    ? 'bg-slate-900 text-white shadow-xs'
                                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                                 }`}
                               >
@@ -5063,142 +5061,142 @@ function StoreContent({ shopId }) {
                         </div>
 
                         {/* Top Highlights Banner: Total Sales Revenue */}
-                        <div className="bg-white border-2 border-emerald-500/40 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2 text-emerald-700 text-[11px] font-black uppercase tracking-widest">
-                              <ShoppingBag className="w-4 h-4 text-emerald-600" />
+                        <div className="bg-white border border-emerald-500/40 rounded-xl p-3 sm:p-3.5 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 relative z-10">
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-1.5 text-emerald-700 text-[10.5px] font-black uppercase tracking-wider">
+                              <ShoppingBag className="w-3.5 h-3.5 text-emerald-600" />
                               Total Sales Revenue ({reportTimeframe === 'DAY' ? 'Today' : reportTimeframe === 'MONTH' ? 'This Month' : reportTimeframe === 'YEAR' ? 'This Year' : 'All-Time'})
                             </div>
-                            <h3 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                            <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
                               Rs. {(profitReportStats.totalRevenue || 0).toLocaleString('en-PK')}
                             </h3>
-                            <p className="text-xs text-slate-600 font-bold">
+                            <p className="text-[11px] text-slate-500 font-bold">
                               🛒 {profitReportStats.filteredSalesCount || 0} Orders &bull; {profitReportStats.filteredPurchasesEggs > 0 ? `${(profitReportStats.filteredPurchasesEggs / 360).toFixed(1)} Boxes Sold` : 'Live POS & Online Sales'}
                             </p>
                           </div>
                           <button
                             onClick={() => setActiveView('report-sales')}
-                            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer shrink-0"
+                            className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-wider rounded-lg transition-all shadow-xs flex items-center gap-1.5 cursor-pointer shrink-0"
                           >
-                            <TrendingUp className="w-4 h-4" /> View Sales Report
+                            <TrendingUp className="w-3.5 h-3.5" /> View Sales Report
                           </button>
                         </div>
 
-                        {/* ─── 4 MAIN SUMMARIZED TOTAL CARDS ─── */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 relative z-10">
+                        {/* ─── 4 MAIN SUMMARIZED TOTAL CARDS (COMPACT GRAY THEME) ─── */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3 relative z-10">
                           
                           {/* 1. TOTAL NET PROFIT */}
-                          <div className={`p-4 sm:p-5 rounded-2xl bg-white border-2 shadow-sm flex flex-col justify-between transition-all hover:shadow-md hover:scale-[1.02] ${
+                          <div className={`p-3 sm:p-3.5 rounded-xl bg-slate-50/90 border shadow-xs flex flex-col justify-between transition-all hover:bg-white hover:shadow-sm ${
                             profitReportStats.finalNetProfit >= 0
-                              ? 'border-emerald-500/50'
-                              : 'border-rose-500/50'
+                              ? 'border-emerald-500/40'
+                              : 'border-rose-500/40'
                           }`}>
-                            <div className="space-y-2">
+                            <div className="space-y-1">
                               <div className="flex items-center justify-between">
-                                <span className="text-xs font-black uppercase tracking-wider text-emerald-800 flex items-center gap-1.5">
-                                  <Sparkles className="w-4 h-4 text-emerald-600" /> Total Net Profit
+                                <span className="text-[11px] font-black uppercase tracking-wider text-emerald-800 flex items-center gap-1.5">
+                                  <Sparkles className="w-3.5 h-3.5 text-emerald-600" /> Total Net Profit
                                 </span>
-                                <div className="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700">
-                                  <TrendingUp className="w-4 h-4" />
+                                <div className="w-6 h-6 rounded-md bg-emerald-100/70 border border-emerald-200 flex items-center justify-center text-emerald-700">
+                                  <TrendingUp className="w-3 h-3" />
                                 </div>
                               </div>
-                              <h4 className={`text-xl sm:text-2xl font-black tracking-tight ${profitReportStats.finalNetProfit >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                              <h4 className={`text-lg sm:text-xl font-black tracking-tight ${profitReportStats.finalNetProfit >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
                                 Rs. {(profitReportStats.finalNetProfit || 0).toLocaleString('en-PK')}
                               </h4>
-                              <p className="text-[11px] font-bold text-slate-600">
+                              <p className="text-[10px] font-bold text-slate-500">
                                 {profitReportStats.finalNetProfit >= 0 ? '✅ Pure Realized Surplus' : '⚠️ Net Financial Deficit'}
                               </p>
                             </div>
                             <button
                               onClick={() => setActiveView('report-profit')}
-                              className="mt-4 w-full py-2 bg-slate-900 hover:bg-emerald-600 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                              className="mt-2.5 w-full py-1.5 bg-slate-900 hover:bg-emerald-600 text-white rounded-lg text-[11px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
                             >
-                              <FileSpreadsheet className="w-3.5 h-3.5" /> Full Profit Report
+                              <FileSpreadsheet className="w-3 h-3" /> Full Profit Report
                             </button>
                           </div>
 
                           {/* 2. TOTAL PURCHASES */}
-                          <div className="p-4 sm:p-5 rounded-2xl bg-white border-2 border-sky-500/50 shadow-sm flex flex-col justify-between transition-all hover:shadow-md hover:scale-[1.02]">
-                            <div className="space-y-2">
+                          <div className="p-3 sm:p-3.5 rounded-xl bg-slate-50/90 border border-sky-500/40 shadow-xs flex flex-col justify-between transition-all hover:bg-white hover:shadow-sm">
+                            <div className="space-y-1">
                               <div className="flex items-center justify-between">
-                                <span className="text-xs font-black uppercase tracking-wider text-sky-800 flex items-center gap-1.5">
-                                  <Truck className="w-4 h-4 text-sky-600" /> Total Purchases
+                                <span className="text-[11px] font-black uppercase tracking-wider text-sky-800 flex items-center gap-1.5">
+                                  <Truck className="w-3.5 h-3.5 text-sky-600" /> Total Purchases
                                 </span>
-                                <div className="w-8 h-8 rounded-lg bg-sky-50 border border-sky-200 flex items-center justify-center text-sky-700">
-                                  <Truck className="w-4 h-4" />
+                                <div className="w-6 h-6 rounded-md bg-sky-100/70 border border-sky-200 flex items-center justify-center text-sky-700">
+                                  <Truck className="w-3 h-3" />
                                 </div>
                               </div>
-                              <h4 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                              <h4 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
                                 Rs. {(profitReportStats.totalPurchasesCost || purchasesLiveBreakdown.totalPurchaseCost || 0).toLocaleString('en-PK')}
                               </h4>
-                              <p className="text-[11px] font-bold text-slate-600">
+                              <p className="text-[10px] font-bold text-slate-500">
                                 📦 {profitReportStats.totalPurchasesPetis || purchasesLiveBreakdown.totalPetisPurchased || 0} Boxes Purchased
                               </p>
                             </div>
                             <button
                               onClick={() => setActiveView('purchases')}
-                              className="mt-4 w-full py-2 bg-slate-900 hover:bg-sky-600 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                              className="mt-2.5 w-full py-1.5 bg-slate-900 hover:bg-sky-600 text-white rounded-lg text-[11px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
                             >
-                              <Truck className="w-3.5 h-3.5" /> View Purchases
+                              <Truck className="w-3 h-3" /> View Purchases
                             </button>
                           </div>
 
                           {/* 3. TOTAL EXPENSES */}
-                          <div className="p-4 sm:p-5 rounded-2xl bg-white border-2 border-rose-500/50 shadow-sm flex flex-col justify-between transition-all hover:shadow-md hover:scale-[1.02]">
-                            <div className="space-y-2">
+                          <div className="p-3 sm:p-3.5 rounded-xl bg-slate-50/90 border border-rose-500/40 shadow-xs flex flex-col justify-between transition-all hover:bg-white hover:shadow-sm">
+                            <div className="space-y-1">
                               <div className="flex items-center justify-between">
-                                <span className="text-xs font-black uppercase tracking-wider text-rose-800 flex items-center gap-1.5">
-                                  <FileText className="w-4 h-4 text-rose-600" /> Total Expenses
+                                <span className="text-[11px] font-black uppercase tracking-wider text-rose-800 flex items-center gap-1.5">
+                                  <FileText className="w-3.5 h-3.5 text-rose-600" /> Total Expenses
                                 </span>
-                                <div className="w-8 h-8 rounded-lg bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-700">
-                                  <FileText className="w-4 h-4" />
+                                <div className="w-6 h-6 rounded-md bg-rose-100/70 border border-rose-200 flex items-center justify-center text-rose-700">
+                                  <FileText className="w-3 h-3" />
                                 </div>
                               </div>
-                              <h4 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                              <h4 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
                                 Rs. {(profitReportStats.totalExpenses || dynamicExpenseStats.totalExp || 0).toLocaleString('en-PK')}
                               </h4>
-                              <p className="text-[11px] font-bold text-slate-600">
+                              <p className="text-[10px] font-bold text-slate-500">
                                 🧾 {profitReportStats.filteredExpensesCount || dynamicExpenseStats.totalExpCount || 0} Total Log Entries
                               </p>
                             </div>
                             <button
                               onClick={() => setActiveView('report-expenses')}
-                              className="mt-4 w-full py-2 bg-slate-900 hover:bg-rose-600 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                              className="mt-2.5 w-full py-1.5 bg-slate-900 hover:bg-rose-600 text-white rounded-lg text-[11px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
                             >
-                              <FileText className="w-3.5 h-3.5" /> View Expenses
+                              <FileText className="w-3 h-3" /> View Expenses
                             </button>
                           </div>
 
                           {/* 4. TOTAL DAMAGED STOCK & LOSS */}
-                          <div className="p-4 sm:p-5 rounded-2xl bg-white border-2 border-amber-500/50 shadow-sm flex flex-col justify-between transition-all hover:shadow-md hover:scale-[1.02]">
-                            <div className="space-y-2">
+                          <div className="p-3 sm:p-3.5 rounded-xl bg-slate-50/90 border border-amber-500/40 shadow-xs flex flex-col justify-between transition-all hover:bg-white hover:shadow-sm">
+                            <div className="space-y-1">
                               <div className="flex items-center justify-between">
-                                <span className="text-xs font-black uppercase tracking-wider text-amber-800 flex items-center gap-1.5">
-                                  <AlertTriangle className="w-4 h-4 text-amber-600" /> Damaged Loss
+                                <span className="text-[11px] font-black uppercase tracking-wider text-amber-800 flex items-center gap-1.5">
+                                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600" /> Damaged Loss
                                 </span>
-                                <div className="w-8 h-8 rounded-lg bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700">
-                                  <PackageX className="w-4 h-4" />
+                                <div className="w-6 h-6 rounded-md bg-amber-100/70 border border-amber-200 flex items-center justify-center text-amber-700">
+                                  <PackageX className="w-3 h-3" />
                                 </div>
                               </div>
-                              <h4 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                              <h4 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
                                 Rs. {(profitReportStats.totalDamagedLoss || dynamicExpenseStats.totalDamaged || 0).toLocaleString('en-PK')}
                               </h4>
-                              <p className="text-[11px] font-bold text-slate-600">
+                              <p className="text-[10px] font-bold text-slate-500">
                                 ⚠️ {profitReportStats.totalDamagedEggs || dynamicExpenseStats.totalDamagedEggs || 0} Damaged Units
                               </p>
                             </div>
                             <button
                               onClick={() => setActiveView('damaged-products')}
-                              className="mt-4 w-full py-2 bg-slate-900 hover:bg-amber-600 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                              className="mt-2.5 w-full py-1.5 bg-slate-900 hover:bg-amber-600 text-white rounded-lg text-[11px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
                             >
-                              <PackageX className="w-3.5 h-3.5" /> View Damaged
+                              <PackageX className="w-3 h-3" /> View Damaged
                             </button>
                           </div>
 
                         </div>
 
                         {/* Bottom Footer Note */}
-                        <div className="flex items-center justify-between pt-3 border-t border-slate-300 text-xs flex-wrap gap-2 text-slate-500 text-[10.5px] font-bold">
+                        <div className="flex items-center justify-between pt-2 border-t border-slate-300 text-xs flex-wrap gap-2 text-slate-500 text-[10px] font-bold">
                           <span>Maidan Perfume Shop Financial Ledger &bull; Real-time MongoDB Synchronized</span>
                           <span className="text-emerald-700 font-black">All totals summarized in real-time</span>
                         </div>

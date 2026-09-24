@@ -6,6 +6,7 @@ import { useUser } from '../../contexts/UserContext';
 import { Lock, User, ShieldCheck, AlertCircle, Eye, EyeOff, ShoppingBag } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import companyLogo from '../../image/logo.png';
+import { AuthBackgroundSlider } from './AuthBackgroundSlider';
 
 export function LoginView() {
   const { login } = useUser();
@@ -31,71 +32,71 @@ export function LoginView() {
   };
 
   return (
-    /* Changed to min-h-svh for better mobile/small screen height handling */
-    <div className="min-h-svh w-full bg-background grid place-items-center p-4 selection:bg-primary/20 relative overflow-x-hidden overflow-y-auto">
+    <div className="min-h-svh w-full bg-slate-950 text-white flex items-center justify-center p-4 relative overflow-x-hidden overflow-y-auto selection:bg-amber-500/30">
+      {/* ─── 5-Image Real Perfume Dynamic Slider in Background (2s interval) ─── */}
+      <AuthBackgroundSlider />
 
-      <div className="w-full max-w-[360px] z-10 animate-in fade-in zoom-in-95 duration-700 flex flex-col py-4">
+      {/* ─── Centered Glassmorphic Login Card ─── */}
+      <div className="w-full max-w-[400px] z-10 animate-in fade-in zoom-in-95 duration-500 flex flex-col py-4">
 
         {/* Logo Section */}
-        <div className="text-center mb-6">
-          <div className="inline-flex p-2 bg-white rounded-2xl shadow-premium mb-3 group hover:scale-105 transition-transform duration-500 border border-[var(--color-border-subtle)]">
+        <div className="text-center mb-5">
+          <div className="inline-flex p-2.5 bg-white/95 rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.6)] mb-2 group hover:scale-105 transition-transform duration-300 border border-white/20">
             <img src={companyLogo} alt="Maidan Perfume Shop Logo" className="h-14 w-auto object-contain drop-shadow-md" />
           </div>
-          <p className="text-[var(--color-text-muted)] font-bold tracking-[0.12em] uppercase text-[8px] mt-2 opacity-70">
-            Maidan Perfume Shop - Inventory Management
+          <p className="text-amber-400 font-black tracking-[0.18em] uppercase text-[9.5px] drop-shadow-lg">
+            Maidan Perfume Shop &bull; Admin Portal
           </p>
         </div>
 
-        {/* Compact Card - Reduced padding from p-10 to p-7 */}
-        <div className="w-full bg-[var(--color-surface-card)] rounded-xl shadow-premium p-7 relative border border-[var(--color-border-subtle)] flex flex-col">
+        {/* Glass Card */}
+        <div className="w-full bg-slate-950/85 backdrop-blur-2xl rounded-3xl shadow-[0_25px_70px_rgba(0,0,0,0.9)] p-6 sm:p-8 relative border border-slate-700/80 flex flex-col text-white">
 
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-1 bg-[var(--color-primary)] rounded-b-full"></div>
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-28 h-1.5 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-600 rounded-b-full shadow-[0_0_15px_rgba(245,158,11,0.9)]"></div>
 
-          <div className="mb-6 text-center">
-            <h2 className="text-xl font-black text-[var(--color-text-primary)] tracking-tight">Admin Login</h2>
-            <p className="text-[var(--color-text-secondary)] text-[11px] font-medium mt-0.5">Sign in to your session</p>
+          <div className="mb-5 text-center">
+            <h2 className="text-xl font-black text-white tracking-tight uppercase">Admin Sign In</h2>
+            <p className="text-slate-400 text-xs font-medium mt-0.5">Super Admin &amp; Shop Admin Login</p>
           </div>
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 w-full">
-            {(error || Object.keys(errors).length > 0) && (
-              <div className="p-2.5 bg-[var(--color-danger)]/10 border border-[var(--color-danger)]/20 rounded-lg flex flex-col gap-1 text-[var(--color-danger)] text-[10px] font-bold">
-                {error && <div className="flex items-center gap-2"><AlertCircle className="w-3 h-3" />{error}</div>}
-                {Object.values(errors).map((err, idx) => (
-                  <div key={idx} className="flex items-center gap-2"><AlertCircle className="w-3 h-3" />{err.message}</div>
-                ))}
-              </div>
-            )}
+          {(error || Object.keys(errors).length > 0) && (
+            <div className="p-3 mb-4 bg-rose-500/15 border border-rose-500/30 rounded-xl flex flex-col gap-1 text-rose-300 text-xs font-bold">
+              {error && <div className="flex items-center gap-2"><AlertCircle className="w-4 h-4 flex-shrink-0 text-rose-400" />{error}</div>}
+              {Object.values(errors).map((err, idx) => (
+                <div key={idx} className="flex items-center gap-2"><AlertCircle className="w-4 h-4 flex-shrink-0 text-rose-400" />{err.message}</div>
+              ))}
+            </div>
+          )}
 
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-3.5 w-full">
             <div className="space-y-3">
-              {/* Identification */}
               <div className="space-y-1">
-                <label className="text-[8px] font-black text-[var(--color-text-muted)] uppercase tracking-widest pl-1">Email</label>
+                <label className="text-[9px] font-black text-slate-300 uppercase tracking-widest pl-1">Username or Email</label>
                 <div className="relative group">
-                  <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-secondary)] group-focus-within:text-[var(--color-primary)] transition-colors" />
+                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-amber-400 transition-colors" />
                   <input
                     {...register('username')}
                     type="text"
-                    placeholder="Username or Email"
-                    className={`w-full bg-[var(--color-surface-base)]/50 border ${errors.username ? 'border-[var(--color-danger)]/40' : 'border-[var(--color-border-subtle)]'} focus:border-[var(--color-primary)]/40 rounded-xl py-3 pl-11 pr-4 text-xs font-bold text-[var(--color-text-primary)] outline-none transition-all placeholder:text-[var(--color-text-muted)]`}
+                    placeholder="hayaserishopadmin@gmail.com"
+                    className={`w-full bg-slate-900/90 border ${errors.username ? 'border-rose-500/60' : 'border-slate-700/80'} focus:border-amber-400 rounded-xl py-2.5 pl-10 pr-4 text-xs font-bold text-white outline-none transition-all placeholder:text-slate-500`}
                   />
                 </div>
               </div>
 
-              {/* Access Key */}
               <div className="space-y-1">
-                <label className="text-[8px] font-black text-[var(--color-text-muted)] uppercase tracking-widest pl-1">Password</label>
+                <label className="text-[9px] font-black text-slate-300 uppercase tracking-widest pl-1">Password</label>
                 <div className="relative group">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-secondary)] group-focus-within:text-[var(--color-primary)] transition-colors" />
+                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-amber-400 transition-colors" />
                   <input
                     {...register('password')}
                     type={showPassword ? "text" : "password"}
-                    placeholder="Password"
-                    className={`w-full bg-[var(--color-surface-base)]/50 border ${errors.password ? 'border-[var(--color-danger)]/40' : 'border-[var(--color-border-subtle)]'} focus:border-[var(--color-primary)]/40 rounded-xl py-3 pl-11 pr-12 text-xs font-bold text-[var(--color-text-primary)] outline-none transition-all placeholder:text-[var(--color-text-muted)]`}
+                    placeholder="••••••••"
+                    className={`w-full bg-slate-900/90 border ${errors.password ? 'border-rose-500/60' : 'border-slate-700/80'} focus:border-amber-400 rounded-xl py-2.5 pl-10 pr-11 text-xs font-bold text-white outline-none transition-all placeholder:text-slate-500`}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors"
+                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-white transition-colors"
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -106,40 +107,35 @@ export function LoginView() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full py-3.5 bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-premium active:scale-[0.97] transition-all disabled:opacity-50 mt-1"
+              className="w-full py-3 bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 rounded-xl font-black text-xs uppercase tracking-wider shadow-lg active:scale-[0.98] transition-all disabled:opacity-50 mt-2 cursor-pointer border-b-2 border-amber-800"
             >
-              {isSubmitting ? "Verifying..." : "Start Session"}
+              {isSubmitting ? "Verifying..." : "Sign In to Dashboard"}
             </button>
           </form>
 
-          {/* Customer Register / Login Portal Link */}
-          <div className="mt-5 pt-4 border-t border-[var(--color-border-subtle)] text-center">
-            <p className="text-[9px] font-black text-[var(--color-text-muted)] uppercase tracking-widest mb-2">
+          {/* Customer Portal Link */}
+          <div className="mt-5 pt-4 border-t border-slate-800 text-center">
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
               Are you a Customer?
             </p>
             <Link
               to="/shop"
-              className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 shadow-md transition-all active:scale-95"
+              className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-md transition-all active:scale-95"
             >
               <ShoppingBag className="w-4 h-4" />
-              Customer Register & Shop
+              Customer Register &amp; Shop
             </Link>
           </div>
 
-          {/* Secure Footer - More compact */}
-          <div className="mt-5 pt-4 border-t border-[var(--color-border-subtle)] flex items-center justify-center gap-2">
-            <ShieldCheck className="w-3 h-3 text-[var(--color-primary)]/50" />
-            <span className="text-[8px] font-black text-[var(--color-text-muted)] uppercase tracking-widest leading-none">
-              Nexus Engine v2.0
+          {/* Secure Footer */}
+          <div className="mt-5 pt-3 border-t border-slate-800/80 flex items-center justify-center gap-1.5">
+            <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+            <span className="text-[8.5px] font-bold text-slate-400 uppercase tracking-wider">
+              Protected &bull; Real-time Multi-tenant System
             </span>
           </div>
-        </div>
-      </div>
 
-      {/* Background Blobs - Reduced opacity for cleaner look */}
-      <div className="fixed inset-0 -z-10 pointer-events-none opacity-[0.05]">
-        <div className="absolute top-1/4 -left-20 w-64 h-64 bg-[var(--color-primary)]/20 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-1/4 -right-20 w-64 h-64 bg-[var(--color-primary)]/10 rounded-full blur-3xl"></div>
+        </div>
       </div>
     </div>
   );

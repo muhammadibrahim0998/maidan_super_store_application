@@ -6,6 +6,36 @@ import { resolveShopId } from '../utils/shopResolver.js';
 
 const router = express.Router();
 
+// GET /api/catalog/showcase/images — public endpoint to get real product images for login background slider
+router.get('/showcase/images', async (req, res) => {
+  try {
+    const items = await Item.find({
+      images: { $exists: true, $not: { $size: 0 } }
+    }).select('name category images price').lean();
+
+    const showcaseImages = [];
+    items.forEach(item => {
+      if (Array.isArray(item.images)) {
+        item.images.forEach(imgUrl => {
+          if (imgUrl && typeof imgUrl === 'string' && imgUrl.trim()) {
+            showcaseImages.push({
+              url: imgUrl,
+              title: item.name,
+              category: item.category,
+              price: item.price
+            });
+          }
+        });
+      }
+    });
+
+    res.json({ success: true, count: showcaseImages.length, images: showcaseImages });
+  } catch (error) {
+    console.error('Error fetching showcase catalog images:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // GET /api/catalog/:shopId  — public, no auth needed
 router.get('/:shopId', async (req, res) => {
   try {
