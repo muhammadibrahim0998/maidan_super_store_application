@@ -65,7 +65,7 @@ router.get('/', authenticate, requireShopAdmin, async (req, res) => {
     let filter = {};
     if (rawShopId) {
       const targetShopId = await resolveShopId(rawShopId);
-      if (targetShopId && mongoose.Types.ObjectId.isValid(targetShopId)) {
+      if (targetShopId) {
         filter = { shopId: targetShopId };
       }
     }
@@ -256,7 +256,7 @@ router.get('/breakdown/:shopId?', authenticate, async (req, res) => {
     let filter = {};
     if (rawShopId) {
       const targetShopId = await resolveShopId(rawShopId);
-      if (targetShopId && mongoose.Types.ObjectId.isValid(targetShopId)) {
+      if (targetShopId) {
         filter = { shopId: targetShopId };
       }
     }
@@ -304,7 +304,7 @@ router.get('/by-type/:type', authenticate, requireShopAdmin, async (req, res) =>
     let filter = {};
     if (rawShopId) {
       const targetShopId = await resolveShopId(rawShopId);
-      if (targetShopId && mongoose.Types.ObjectId.isValid(targetShopId)) {
+      if (targetShopId) {
         filter.shopId = targetShopId;
       }
     }

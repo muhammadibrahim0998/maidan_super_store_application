@@ -34,7 +34,7 @@ router.get('/all', async (req, res) => {
     let filter = {};
     if (shopId) {
       const resolved = await resolveShopId(shopId);
-      if (resolved && mongoose.Types.ObjectId.isValid(resolved)) {
+      if (resolved) {
         filter = { shopId: resolved };
       }
     }
@@ -276,7 +276,7 @@ router.delete('/cart', authenticateCustomer, async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+    if (!id || id === 'undefined' || id === 'null') {
       return res.status(400).json({ message: 'Invalid customer ID' });
     }
     const { fullName, email, phone, address, password } = req.body;
@@ -358,7 +358,7 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+    if (!id || id === 'undefined' || id === 'null') {
       return res.status(400).json({ message: 'Invalid customer ID' });
     }
     const customer = await Customer.findByIdAndDelete(id);

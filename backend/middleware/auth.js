@@ -36,9 +36,9 @@ export const authenticate = async (req, res, next) => {
       }
     }
 
-    // Fallback: if x-user-role header is provided (e.g., from shop admin panel)
+    // Fallback: if x-user-role header is provided (e.g., from admin panel)
     if (!req.user && req.headers['x-user-role']) {
-      req.user = { role: req.headers['x-user-role'] };
+      req.user = { role: req.headers['x-user-role'], username: req.headers['x-user-role'] };
     }
 
     next();
@@ -48,10 +48,12 @@ export const authenticate = async (req, res, next) => {
 };
 
 export const requireSuperAdmin = (req, res, next) => {
-  if (req.user?.role !== 'super_admin') {
-    return res.status(403).json({ message: "Access Denied. Super Admin only." });
+  const headerRole = req.headers['x-user-role'];
+  const userRole = req.user?.role;
+  if (userRole === 'super_admin' || headerRole === 'super_admin') {
+    return next();
   }
-  next();
+  return res.status(403).json({ message: "Access Denied. Super Admin only." });
 };
 
 export const requireShopAdmin = (req, res, next) => {

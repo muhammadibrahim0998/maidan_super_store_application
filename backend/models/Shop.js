@@ -1,17 +1,37 @@
-import mongoose from "mongoose";
+import { BaseMySQLModel } from './BaseMySQLModel.js';
 
-const ShopSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  address: { type: String },
-  status: { type: String, enum: ['active', 'inactive'], default: 'active' },
-  contactNumber: { type: String },
-  logoUrl: { type: String },
-  ownerDetails: {
-    fullName: { type: String },
-    email: { type: String, lowercase: true },
-    phone: { type: String }
+export default class Shop extends BaseMySQLModel {
+  static tableName = 'shops';
+  static jsonFields = [];
+
+  constructor(data = {}) {
+    super(data);
+    this.name = data.name || 'Perfume Shop Center Hayaseri';
+    this.address = data.address || '';
+    this.status = data.status || 'active';
+    this.contactNumber = data.contactNumber || '';
+    this.logoUrl = data.logoUrl || '';
+    this.ownerFullName = data.ownerFullName || (data.ownerDetails?.fullName || '');
+    this.ownerEmail = data.ownerEmail || (data.ownerDetails?.email || '');
+    this.ownerPhone = data.ownerPhone || (data.ownerDetails?.phone || '');
+    this.createdAt = data.createdAt || new Date();
+    this.updatedAt = data.updatedAt || new Date();
   }
-}, { timestamps: true });
 
-const Shop = mongoose.model('Shop', ShopSchema);
-export default Shop;
+  // Backwards-compatibility for ownerDetails getter/setter
+  get ownerDetails() {
+    return {
+      fullName: this.ownerFullName,
+      email: this.ownerEmail,
+      phone: this.ownerPhone
+    };
+  }
+
+  set ownerDetails(val) {
+    if (val && typeof val === 'object') {
+      this.ownerFullName = val.fullName || this.ownerFullName;
+      this.ownerEmail = val.email || this.ownerEmail;
+      this.ownerPhone = val.phone || this.ownerPhone;
+    }
+  }
+}

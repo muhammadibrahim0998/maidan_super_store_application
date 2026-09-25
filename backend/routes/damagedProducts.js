@@ -39,8 +39,8 @@ router.post('/shop/:shopId', async (req, res) => {
 
     // Find the item to deduct stock from
     let item = null;
-    if (productId && mongoose.Types.ObjectId.isValid(productId)) {
-      item = await Item.findOne({ _id: productId, shopId: realShopId });
+    if (productId) {
+      item = await Item.findOne({ id: productId, shopId: realShopId });
     }
     if (!item && productName) {
       item = await Item.findOne({ 
@@ -114,7 +114,7 @@ router.delete('/:id', async (req, res) => {
     }
 
     // Restore stock to Item if found
-    if (record.productId && mongoose.Types.ObjectId.isValid(record.productId)) {
+    if (record.productId) {
       const item = await Item.findById(record.productId);
       if (item && record.deductedEggs > 0) {
         const traysPerPeti = item.traysPerPeti || 12;

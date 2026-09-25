@@ -1,21 +1,26 @@
-import mongoose from "mongoose";
+import { BaseMySQLModel } from './BaseMySQLModel.js';
 
-const SettingsSchema = new mongoose.Schema({
-  shopName: { type: String, default: 'Egg Station POS' },
-  address: { type: String, default: '' },
-  phone: { type: String, default: '' },
-  email: { type: String, default: '' },
-  currency: { type: String, default: '$' },
-  logoUrl: { type: String, default: '' },
-  ownerPassword: { type: String, default: 'admin123' },
-  taxRate: { type: Number, default: 0 },
-  ownerFullName: { type: String, default: '' },
-  ownerEmail: { type: String, default: '' },
-  ownerPhone: { type: String, default: '' },
-  easypaisaNumber: { type: String, default: '' },
-  easypaisaEnabled: { type: Boolean, default: false },
-  shopId: { type: mongoose.Schema.Types.ObjectId, ref: 'Shop', required: true, unique: true }
-}, { timestamps: true });
+export default class Settings extends BaseMySQLModel {
+  static tableName = 'settings';
+  static jsonFields = [];
 
-const Settings = mongoose.model('Settings', SettingsSchema);
-export default Settings;
+  constructor(data = {}) {
+    super(data);
+    this.shopId = data.shopId || '';
+    this.shopName = data.shopName || 'Maidan Perfume Shop';
+    this.address = data.address || '';
+    this.phone = data.phone || '';
+    this.email = data.email || '';
+    this.currency = data.currency || 'Rs.';
+    this.logoUrl = data.logoUrl || '';
+    this.ownerPassword = data.ownerPassword || '123456';
+    this.taxRate = Number(data.taxRate) || 0;
+    this.ownerFullName = data.ownerFullName || '';
+    this.ownerEmail = data.ownerEmail || '';
+    this.ownerPhone = data.ownerPhone || '';
+    this.easypaisaNumber = data.easypaisaNumber || '';
+    this.easypaisaEnabled = data.easypaisaEnabled ? 1 : 0;
+    this.createdAt = data.createdAt || new Date();
+    this.updatedAt = data.updatedAt || new Date();
+  }
+}

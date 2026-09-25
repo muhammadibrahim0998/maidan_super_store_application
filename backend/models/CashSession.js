@@ -1,66 +1,25 @@
-import mongoose from 'mongoose';
+import { BaseMySQLModel } from './BaseMySQLModel.js';
 
-const CashSessionSchema = new mongoose.Schema({
-  shopId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Shop',
-    required: true
-  },
-  startTime: {
-    type: Date,
-    default: Date.now
-  },
-  endTime: {
-    type: Date
-  },
-  openingCash: {
-    type: Number,
-    required: true,
-    default: 0
-  },
-  closingCash: {
-    type: Number,
-    default: 0
-  },
-  totalSales: {
-    type: Number,
-    default: 0
-  },
-  totalReturns: {
-    type: Number,
-    default: 0
-  },
-  expectedCash: {
-    type: Number,
-    default: 0
-  },
-  actualCash: {
-    type: Number,
-    default: 0
-  },
-  status: {
-    type: String,
-    enum: ['open', 'closed'],
-    default: 'open'
-  },
-  cashierId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
-  },
-  closedBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
-  },
-  notes: {
-    type: String,
-    default: ''
-  },
-  shiftType: {
-    type: String,
-    enum: ['day', 'night'],
-    default: 'day'
+export default class CashSession extends BaseMySQLModel {
+  static tableName = 'cash_sessions';
+  static jsonFields = [];
+
+  constructor(data = {}) {
+    super(data);
+    this.shopId = data.shopId || '';
+    this.cashierId = data.cashierId || '';
+    this.startTime = data.startTime || new Date();
+    this.endTime = data.endTime || null;
+    this.openingCash = Number(data.openingCash) || 0;
+    this.closingCash = Number(data.closingCash) || 0;
+    this.totalSales = Number(data.totalSales) || 0;
+    this.totalReturns = Number(data.totalReturns) || 0;
+    this.expectedCash = Number(data.expectedCash) || 0;
+    this.actualCash = Number(data.actualCash) || 0;
+    this.cashDifference = Number(data.cashDifference) || 0;
+    this.status = data.status || 'active';
+    this.notes = data.notes || '';
+    this.createdAt = data.createdAt || new Date();
+    this.updatedAt = data.updatedAt || new Date();
   }
-}, { timestamps: true });
-
-export default mongoose.model('CashSession', CashSessionSchema);
+}

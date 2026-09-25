@@ -71,17 +71,19 @@ const getItems = async (req, res) => {
   }
 };
 
+const isValidId = (id) => id !== undefined && id !== null && id !== 'undefined' && id !== 'null' && String(id).trim() !== '';
+
 // @desc    Get single item
 const getItem = async (req, res) => {
   try {
     const { id } = req.params;
-    if (!id || id === 'undefined' || id === 'null' || !mongoose.Types.ObjectId.isValid(id)) {
+    if (!isValidId(id)) {
       return res.status(400).json({ message: 'Invalid product ID' });
     }
 
     const filter = (req.user?.role === 'super_admin' || !req.user?.shopId)
-      ? { _id: id }
-      : { _id: id, shopId: req.user.shopId };
+      ? { id }
+      : { id, shopId: req.user.shopId };
 
     const item = await Item.findOne(filter);
     if (!item) return res.status(404).json({ message: 'Item not found' });
@@ -176,7 +178,7 @@ const createItem = async (req, res) => {
 const updateItem = async (req, res) => {
   try {
     const { id } = req.params;
-    if (!id || id === 'undefined' || id === 'null' || !mongoose.Types.ObjectId.isValid(id)) {
+    if (!isValidId(id)) {
       return res.status(400).json({ message: 'Invalid product ID' });
     }
 
@@ -210,8 +212,8 @@ const updateItem = async (req, res) => {
 
     // Branch scoping: Shop admin can only update their own shop's item (super admin can update any)
     const filter = (req.user?.role === 'super_admin' || !req.user?.shopId)
-      ? { _id: id }
-      : { _id: id, shopId: req.user.shopId };
+      ? { id }
+      : { id, shopId: req.user.shopId };
 
     const updatedItem = await Item.findOneAndUpdate(
       filter,
@@ -229,14 +231,14 @@ const updateItem = async (req, res) => {
 const deleteItem = async (req, res) => {
   try {
     const { id } = req.params;
-    if (!id || id === 'undefined' || id === 'null' || !mongoose.Types.ObjectId.isValid(id)) {
+    if (!isValidId(id)) {
       return res.status(400).json({ message: 'Invalid product ID' });
     }
 
     // Branch scoping: Shop admin can only delete their own shop's item (super admin can delete any)
     const filter = (req.user?.role === 'super_admin' || !req.user?.shopId)
-      ? { _id: id }
-      : { _id: id, shopId: req.user.shopId };
+      ? { id }
+      : { id, shopId: req.user.shopId };
 
     const item = await Item.findOneAndDelete(filter);
     if (!item) {
@@ -252,14 +254,14 @@ const deleteItem = async (req, res) => {
 const settleSupplierCredit = async (req, res) => {
   try {
     const { id } = req.params;
-    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+    if (!isValidId(id)) {
       return res.status(400).json({ message: 'Invalid product ID' });
     }
 
     const { paymentMethod = 'Cash', amountPaid, paymentReceipt } = req.body;
     const filter = (req.user?.role === 'super_admin' || !req.user?.shopId)
-      ? { _id: id }
-      : { _id: id, shopId: req.user.shopId };
+      ? { id }
+      : { id, shopId: req.user.shopId };
 
     const item = await Item.findOne(filter);
     if (!item) {

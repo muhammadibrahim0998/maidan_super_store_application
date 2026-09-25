@@ -1,29 +1,18 @@
-import mongoose from 'mongoose';
+import { BaseMySQLModel } from './BaseMySQLModel.js';
 
-const SystemUpdateSchema = new mongoose.Schema({
-  category: {
-    type: String,
-    required: true,
-    enum: ['New Features', 'UI Improvements', 'Security & Logic', 'Performance', 'Bug Fixes']
-  },
-  iconType: {
-    type: String,
-    required: true,
-    enum: ['zap', 'sparkles', 'shield', 'box', 'activity']
-  },
-  items: [{
-    type: String,
-    required: true
-  }],
-  isActive: {
-    type: Boolean,
-    default: true
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
+export default class SystemUpdate extends BaseMySQLModel {
+  static tableName = 'system_updates';
+  static jsonFields = ['changes'];
+
+  constructor(data = {}) {
+    super(data);
+    this.version = data.version || '1.0.0';
+    this.title = data.title || '';
+    this.description = data.description || '';
+    this.releaseDate = data.releaseDate || new Date();
+    this.isCritical = data.isCritical ? 1 : 0;
+    this.changes = Array.isArray(data.changes) ? data.changes : (typeof data.changes === 'string' ? JSON.parse(data.changes || '[]') : []);
+    this.createdAt = data.createdAt || new Date();
+    this.updatedAt = data.updatedAt || new Date();
   }
-});
-
-const SystemUpdate = mongoose.model('SystemUpdate', SystemUpdateSchema);
-export default SystemUpdate;
+}

@@ -61,9 +61,15 @@ router.get("/me", authenticate, async (req, res) => {
 router.post("/login", validateLogin, async (req, res) => {
   try {
     const { username, password } = req.body;
+    const trimmed = (username || '').trim();
     
     // allow login with either username or email
-    const user = await User.findOne({ $or: [{ username }, { email: username }] });
+    let user = await User.findOne({ $or: [{ username: trimmed }, { email: trimmed }] });
+
+    // Super Admin alias lookup
+    if (!user && (trimmed.toLowerCase() === 'superadmin' || trimmed.toLowerCase() === 'super_admin' || trimmed.toLowerCase() === 'sohail')) {
+      user = await User.findOne({ role: 'super_admin' });
+    }
 
     if (!user || !(await user.comparePassword(password))) {
       return res.status(401).json({ 

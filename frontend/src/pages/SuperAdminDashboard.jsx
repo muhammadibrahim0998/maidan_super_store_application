@@ -6,7 +6,8 @@ import api from '../services/api';
 import {
     Store, Plus, Building2, Edit2, Trash2, X, Check,
     LayoutDashboard, Users, Activity, Eye, EyeOff,
-    Package, ShoppingBag, DollarSign, TrendingUp, Calendar, BarChart3, Truck
+    Package, ShoppingBag, DollarSign, TrendingUp, Calendar, BarChart3, Truck,
+    Lock, Phone, Mail, MapPin, Save
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useProducts } from '../contexts/ProductContext';
@@ -22,7 +23,17 @@ export function SuperAdminDashboard() {
     sessionStorage.setItem('superAdminTab', tab);
   };
     const [editingShop, setEditingShop] = useState(null);
-    const [editData, setEditData] = useState({ name: '', address: '', contactNumber: '', status: 'active' });
+    const [editData, setEditData] = useState({
+        name: '',
+        address: '',
+        contactNumber: '',
+        status: 'active',
+        adminFullName: '',
+        adminUsername: '',
+        adminPassword: '',
+        easypaisaNumber: ''
+    });
+    const [isSavingShop, setIsSavingShop] = useState(false);
     const [viewingShop, setViewingShop] = useState(null);
     const [deleteDialog, setDeleteDialog] = useState({ isOpen: false, id: null, name: '' });
     const [isDeleting, setIsDeleting] = useState(false);
@@ -216,9 +227,10 @@ export function SuperAdminDashboard() {
     const onAddShop = async (data) => {
         try {
             await api.post('/shops', data);
-            toast.success('Shop created!');
+            toast.success('Shop created successfully!');
             reset();
             fetchShops();
+            fetchGlobalStats();
         } catch (err) {
             const serverError = err.response?.data?.message || 'Failed to create shop';
             toast.error(serverError);
@@ -228,19 +240,21 @@ export function SuperAdminDashboard() {
     const handleDeleteShop = (shop) => {
         setDeleteDialog({
             isOpen: true,
-            id: shop._id,
+            id: shop._id || shop.id,
             name: shop.name
         });
     };
 
     const confirmDeleteShop = async () => {
         const { id } = deleteDialog;
+        if (!id) return;
         setIsDeleting(true);
         try {
             await api.delete(`/shops/${id}`);
-            toast.success("Shop deleted successfully");
+            toast.success("Shop and all its data deleted successfully");
             setDeleteDialog({ isOpen: false, id: null, name: '' });
             fetchShops();
+            fetchGlobalStats();
         } catch (err) {
             const msg = err.response?.data?.message || "Failed to delete shop";
             toast.error(msg);
@@ -249,32 +263,41 @@ export function SuperAdminDashboard() {
         }
     };
 
-    const handleUpdateShop = async (id) => {
-        try {
-            await api.put(`/shops/${id}`, editData);
-            toast.success("Shop updated successfully");
-            setEditingShop(null);
-            fetchShops();
-        } catch (err) {
-            toast.error("Failed to update shop");
-        }
-    };
-
     const startEdit = (shop) => {
-        setActiveTab('management'); // Switch to management tab if not there
-        setEditingShop(shop._id);
+        setEditingShop(shop);
         setEditData({
             name: shop.name || '',
             address: shop.address || '',
             contactNumber: shop.contactNumber || '',
-            ownerEmail: shop.ownerDetails?.email || '',
-            status: shop.status
+            adminFullName: shop.ownerDetails?.fullName || shop.adminFullName || shop.ownerFullName || '',
+            adminUsername: shop.ownerDetails?.email || shop.adminUsername || shop.ownerEmail || '',
+            adminPassword: '',
+            easypaisaNumber: shop.easypaisaNumber || '',
+            status: shop.status || 'active'
         });
-        // Scroll to management section if needed - added a slight delay to ensure tab is rendered
-        setTimeout(() => {
-            const el = document.getElementById(`shop-manage-${shop._id}`);
-            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }, 100);
+    };
+
+    const handleSaveShopEdit = async (e) => {
+        if (e) e.preventDefault();
+        if (!editingShop) return;
+        if (!editData.name || editData.name.trim().length < 2) {
+            toast.error('Shop name must be at least 2 characters');
+            return;
+        }
+        setIsSavingShop(true);
+        try {
+            const id = editingShop._id || editingShop.id;
+            await api.put(`/shops/${id}`, editData);
+            toast.success("Shop updated successfully!");
+            setEditingShop(null);
+            fetchShops();
+            fetchGlobalStats();
+        } catch (err) {
+            const msg = err.response?.data?.message || "Failed to update shop";
+            toast.error(msg);
+        } finally {
+            setIsSavingShop(false);
+        }
     };
 
     if (loading) {
@@ -496,142 +519,44 @@ export function SuperAdminDashboard() {
                                 {isSubmitting ? 'Registering...' : 'Create Shop'}
                             </button>
                         </form>
-                    </div>
-
-                    {/* Shops List for Management */}
+                    </div>                    {/* Shops List for Management */}
                     <div className="lg:col-span-2 space-y-4">
                         <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-4 pl-2">Modify Existing Access</h3>
-                        {filteredShops.map(shop => {
-                            const isEditing = editingShop === shop._id;
-                            return (
-                                <div key={shop._id} id={`shop-manage-${shop._id}`} className="bg-white p-5 rounded-2xl border border-zinc-100 flex items-center justify-between shadow-sm hover:shadow-rich hover:border-green-500/20 transition-all group/shop relative overflow-hidden">
-                                    <div className="flex items-center gap-5 flex-1 min-w-0">
-                                        <div className="p-3.5 bg-zinc-50 rounded-xl border border-zinc-100 transition-colors group-hover/shop:bg-green-50/50 flex-shrink-0">
-                                            <Store className="w-6 h-6 text-zinc-400 group-hover/shop:text-green-500 transition-colors" />
-                                        </div>
-                                        {isEditing ? (
-                                            <div className="flex-1 grid grid-cols-1 sm:grid-cols-5 gap-3">
-                                                <input value={editData.name} onChange={(e) => setEditData({ ...editData, name: e.target.value })} className="px-3 py-2 rounded-lg border border-zinc-100 bg-zinc-50 text-zinc-900 text-xs font-bold focus:bg-white outline-none" placeholder="Name" />
-                                                <input value={editData.ownerEmail} onChange={(e) => setEditData({ ...editData, ownerEmail: e.target.value })} className="px-3 py-2 rounded-lg border border-zinc-100 bg-zinc-50 text-zinc-900 text-xs font-bold focus:bg-white outline-none" placeholder="Email Address" type="email" />
-                                                <input value={editData.address} onChange={(e) => setEditData({ ...editData, address: e.target.value })} className="px-3 py-2 rounded-lg border border-zinc-100 bg-zinc-50 text-zinc-900 text-xs font-bold focus:bg-white outline-none" placeholder="Address" />
-                                                <input value={editData.contactNumber} onChange={(e) => setEditData({ ...editData, contactNumber: e.target.value })} className="px-3 py-2 rounded-lg border border-zinc-100 bg-zinc-50 text-zinc-900 text-xs font-bold focus:bg-white outline-none" placeholder="Phone" />
-                                                <select value={editData.status} onChange={(e) => setEditData({ ...editData, status: e.target.value })} className="px-3 py-2 rounded-lg border border-zinc-100 bg-zinc-50 text-zinc-900 text-xs font-bold focus:bg-white outline-none">
-                                                    <option value="active">Active</option>
-                                                    <option value="inactive">Inactive</option>
-                                                </select>
-                                            </div>
-                                        ) : (
-                                            <div className="min-w-0 flex-1">
-                                                <h3 className="font-bold text-zinc-900 text-sm uppercase tracking-tight truncate">{shop.name}</h3>
-                                                <p className="text-[10px] font-medium text-zinc-400 uppercase tracking-widest mt-0.5 truncate">
-                                                    {shop.address || 'Global'} {shop.contactNumber && `• ${shop.contactNumber}`}
-                                                </p>
-                                            </div>
-                                        )}
+                        {filteredShops.map(shop => (
+                            <div key={shop._id || shop.id} className="bg-white p-5 rounded-2xl border border-zinc-100 flex items-center justify-between shadow-sm hover:shadow-rich hover:border-green-500/20 transition-all group/shop relative overflow-hidden">
+                                <div className="flex items-center gap-5 flex-1 min-w-0">
+                                    <div className="p-3.5 bg-zinc-50 rounded-xl border border-zinc-100 transition-colors group-hover/shop:bg-green-50/50 flex-shrink-0">
+                                        <Store className="w-6 h-6 text-zinc-400 group-hover/shop:text-green-500 transition-colors" />
                                     </div>
-                                    <div className="flex items-center gap-3 ml-4 flex-shrink-0">
-                                        {isEditing ? (
-                                            <>
-                                                <button onClick={() => handleUpdateShop(shop._id)} className="p-2.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg transition-all border border-emerald-100"><Check className="w-4 h-4" /></button>
-                                                <button onClick={() => setEditingShop(null)} className="p-2.5 bg-zinc-50 text-zinc-400 hover:text-zinc-600 rounded-lg transition-all border border-zinc-100"><X className="w-4 h-4" /></button>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <span className={`px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest border transition-all group-hover/shop:opacity-0 group-hover/shop:scale-90 ${shop.status === 'active' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
-                                                    {shop.status}
-                                                </span>
-                                                <div className="flex items-center gap-2 opacity-0 group-hover/shop:opacity-100 absolute right-5 transition-all translate-x-4 group-hover/shop:translate-x-0">
-                                                    <button onClick={() => window.open(`/shop/${shop._id}`, '_blank')} className="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[10px] font-black uppercase tracking-wider shadow-sm transition-all flex items-center gap-1 cursor-pointer" title="Open Store Portal">
-                                                        <Store className="w-3.5 h-3.5" /> Open Portal
-                                                    </button>
-                                                    <button onClick={() => setViewingShop(shop)} className="p-2.5 bg-zinc-50 text-zinc-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all border border-zinc-100" title="View Details"><Eye className="w-4 h-4" /></button>
-                                                    <button onClick={() => startEdit(shop)} className="p-2.5 bg-zinc-50 text-zinc-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all border border-zinc-100" title="Edit Shop"><Edit2 className="w-4 h-4" /></button>
-                                                    <button onClick={() => handleDeleteShop(shop)} className="p-2.5 bg-zinc-50 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all border border-zinc-100" title="Delete Shop"><Trash2 className="w-4 h-4" /></button>
-                                                </div>
-                                            </>
-                                        )}
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-2">
+                                            <h3 className="font-bold text-zinc-900 text-sm uppercase tracking-tight truncate">{shop.name}</h3>
+                                            <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border ${shop.status === 'active' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
+                                                {shop.status}
+                                            </span>
+                                        </div>
+                                        <p className="text-[10px] font-medium text-zinc-400 uppercase tracking-widest mt-0.5 truncate">
+                                            {shop.address || 'Global'} {shop.contactNumber && `• ${shop.contactNumber}`} {shop.ownerDetails?.email && `• ${shop.ownerDetails.email}`}
+                                        </p>
                                     </div>
                                 </div>
-                            );
-                        })}
-                    </div>
-                    {/* Global Delete Confirmation Modal */}
-                    <DeleteConfirmationModal
-                        isOpen={deleteDialog.isOpen}
-                        onClose={() => setDeleteDialog({ ...deleteDialog, isOpen: false })}
-                        onConfirm={confirmDeleteShop}
-                        title="Confirm Shop Deletion"
-                        message="Are you sure you want to delete this shop and all its users? This cannot be undone."
-                        itemName={deleteDialog.name}
-                        isDeleting={isDeleting}
-                    />
-
-                    {/* Shop View Modal */}
-                    {viewingShop && (
-                        <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-zinc-900/60 backdrop-blur-md animate-in fade-in duration-200">
-                            <div className="bg-white w-full max-w-[420px] rounded-3xl shadow-2xl overflow-hidden border border-zinc-200 animate-in zoom-in-95 duration-200">
-                                <div className="relative p-5 space-y-4">
-                                    <button
-                                        onClick={() => setViewingShop(null)}
-                                        className="absolute top-4 right-4 p-1.5 bg-zinc-100 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-200 rounded-xl transition-all active:scale-95"
-                                    >
-                                        <X className="w-4 h-4" />
+                                <div className="flex items-center gap-2 ml-4 flex-shrink-0">
+                                    <button onClick={() => window.open(`/shop/${shop._id || shop.id}`, '_blank')} className="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[10px] font-black uppercase tracking-wider shadow-sm transition-all flex items-center gap-1 cursor-pointer" title="Open Store Portal">
+                                        <Store className="w-3.5 h-3.5" /> Open Portal
                                     </button>
-
-                                    <div className="flex items-center gap-3.5 pt-1 pr-6">
-                                        <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 shrink-0">
-                                            <Store className="w-6 h-6 text-emerald-600" />
-                                        </div>
-                                        <div className="min-w-0 flex-1">
-                                            <div className="flex items-center gap-2 mb-0.5">
-                                                <h2 className="text-xl font-black text-zinc-900 uppercase tracking-tight truncate">{viewingShop.name}</h2>
-                                                <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border shrink-0 ${viewingShop.status === 'active' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' : 'bg-rose-500/10 text-rose-600 border-rose-500/20'}`}>
-                                                    {viewingShop.status}
-                                                </span>
-                                            </div>
-                                            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest truncate">{viewingShop.address || "Attock, Pakistan"}</p>
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-2.5 pt-2 border-t border-zinc-100">
-                                        <div className="space-y-2">
-                                            <h4 className="text-[9px] font-black text-emerald-600 uppercase tracking-widest pl-1">Store Identity</h4>
-                                            <div className="bg-zinc-50 p-2.5 rounded-xl border border-zinc-100 space-y-0.5">
-                                                <p className="text-[8px] font-black text-zinc-400 uppercase tracking-widest">Reference ID</p>
-                                                <p className="text-[11px] font-bold text-zinc-700 truncate">#{viewingShop._id.toUpperCase()}</p>
-                                            </div>
-                                            <div className="bg-zinc-50 p-2.5 rounded-xl border border-zinc-100 space-y-0.5">
-                                                <p className="text-[8px] font-black text-zinc-400 uppercase tracking-widest">Contact</p>
-                                                <p className="text-[11px] font-bold text-zinc-700">{viewingShop.contactNumber || "Not Provided"}</p>
-                                            </div>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <h4 className="text-[9px] font-black text-emerald-600 uppercase tracking-widest pl-1">Administrator</h4>
-                                            <div className="bg-zinc-50 p-2.5 rounded-xl border border-zinc-100 space-y-0.5">
-                                                <p className="text-[8px] font-black text-zinc-400 uppercase tracking-widest">Authorized</p>
-                                                <p className="text-[11px] font-bold text-zinc-800 truncate">{viewingShop.ownerDetails?.fullName || viewingShop.adminFullName || "Attock Shop Admin"}</p>
-                                            </div>
-                                            <div className="bg-zinc-50 p-2.5 rounded-xl border border-zinc-100 space-y-0.5">
-                                                <p className="text-[8px] font-black text-zinc-400 uppercase tracking-widest">Email Username</p>
-                                                <p className="text-[10px] font-bold text-emerald-600 truncate">{viewingShop.ownerDetails?.email || "attock@gmail.com"}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <button
-                                        onClick={() => {
-                                            startEdit(viewingShop);
-                                            setViewingShop(null);
-                                        }}
-                                        className="w-full mt-2 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-white rounded-2xl font-black text-[10px] uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95"
-                                    >
-                                        <Edit2 className="w-3.5 h-3.5" />
-                                        Enter Administrative Bridge
+                                    <button onClick={() => setViewingShop(shop)} className="p-2.5 bg-zinc-50 text-zinc-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all border border-zinc-100" title="View Details">
+                                        <Eye className="w-4 h-4" />
+                                    </button>
+                                    <button onClick={() => startEdit(shop)} className="p-2.5 bg-zinc-50 text-zinc-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all border border-zinc-100" title="Edit Shop">
+                                        <Edit2 className="w-4 h-4" />
+                                    </button>
+                                    <button onClick={() => handleDeleteShop(shop)} className="p-2.5 bg-zinc-50 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all border border-zinc-100" title="Delete Shop">
+                                        <Trash2 className="w-4 h-4" />
                                     </button>
                                 </div>
                             </div>
-                        </div>
-                    )}
+                        ))}
+                    </div>
                 </div>
             ) : (
                 /* EasyPaisa Receipts & Orders Tab Content */
@@ -649,7 +574,7 @@ export function SuperAdminDashboard() {
                             >
                                 <option value="ALL">All Shops</option>
                                 {shops.map(s => (
-                                    <option key={s._id} value={s._id}>{s.name}</option>
+                                    <option key={s._id || s.id} value={s._id || s.id}>{s.name}</option>
                                 ))}
                             </select>
                             <button onClick={fetchOrders} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-lg active:scale-95">
@@ -660,21 +585,20 @@ export function SuperAdminDashboard() {
 
                     {ordersLoading ? (
                         <div className="py-20 text-center text-slate-400 font-bold">Loading orders and payment receipts...</div>
-                    ) : orders.filter(o => selectedShopFilter === 'ALL' || String(o.shopId?._id || o.shopId) === String(selectedShopFilter)).length === 0 ? (
+                    ) : orders.filter(o => selectedShopFilter === 'ALL' || String(o.shopId?._id || o.shopId?.id || o.shopId) === String(selectedShopFilter)).length === 0 ? (
                         <div className="py-20 text-center bg-surface-card border border-[var(--color-border-subtle)] rounded-3xl text-slate-400 font-bold">
                             No customer orders placed for this selection yet.
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 gap-4">
-                            {orders.filter(o => selectedShopFilter === 'ALL' || String(o.shopId?._id || o.shopId) === String(selectedShopFilter)).map(ord => (
-                                <div key={ord._id} className="bg-white border border-zinc-200 rounded-3xl p-6 shadow-xl flex flex-col md:flex-row gap-6 justify-between items-start md:items-center">
+                            {orders.filter(o => selectedShopFilter === 'ALL' || String(o.shopId?._id || o.shopId?.id || o.shopId) === String(selectedShopFilter)).map(ord => (
+                                <div key={ord._id || ord.id} className="bg-white border border-zinc-200 rounded-3xl p-6 shadow-xl flex flex-col md:flex-row gap-6 justify-between items-start md:items-center">
                                     <div className="space-y-2 flex-1">
                                         <div className="flex items-center gap-3 flex-wrap">
-                                            <span className="text-xs font-black px-3 py-1 bg-zinc-900 text-white rounded-lg">#{ord._id.slice(-6).toUpperCase()}</span>
+                                            <span className="text-xs font-black px-3 py-1 bg-zinc-900 text-white rounded-lg">#{String(ord._id || ord.id).slice(-6).toUpperCase()}</span>
                                             <span className={`text-[10px] font-black uppercase px-3 py-1 rounded-full border ${ord.paymentMethod === 'EASYPAISA' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-indigo-50 text-indigo-700 border-indigo-200'}`}>
                                                 {ord.paymentMethod}
                                             </span>
-                                            {/* Payment Status Badge - READ ONLY for SuperAdmin */}
                                             <span className={`text-[10px] font-black uppercase px-4 py-1.5 rounded-full flex items-center gap-1.5 ${
                                                 ord.paymentStatus === 'PAID'
                                                     ? 'bg-emerald-600 text-white'
@@ -689,7 +613,6 @@ export function SuperAdminDashboard() {
                                             <span className="text-xs font-bold text-zinc-400">{new Date(ord.createdAt).toLocaleString()}</span>
                                         </div>
 
-                                        {/* Shop Name */}
                                         <div className="text-xs font-black text-zinc-500 uppercase tracking-widest">
                                             🏪 Shop: <span className="text-emerald-700">{ord.shopId?.name || 'Unknown Shop'}</span>
                                         </div>
@@ -711,11 +634,11 @@ export function SuperAdminDashboard() {
                                         </div>
                                     </div>
 
-                                    {/* Proof Screenshot - VIEW ONLY, No Delete for SuperAdmin */}
+                                    {/* Proof Screenshot */}
                                     <div className="flex items-center gap-4">
                                         {ord.paymentProof ? (
                                             <div
-                                                onClick={() => setSelectedProofImage({ url: ord.paymentProof, orderId: ord._id })}
+                                                onClick={() => setSelectedProofImage({ url: ord.paymentProof, orderId: ord._id || ord.id })}
                                                 className="cursor-pointer group relative border-2 border-emerald-400/60 rounded-2xl overflow-hidden shadow-lg hover:scale-105 transition-all"
                                                 title="Click to view screenshot"
                                             >
@@ -730,7 +653,6 @@ export function SuperAdminDashboard() {
                                             </div>
                                         )}
 
-                                        {/* SuperAdmin READ-ONLY note — No action buttons */}
                                         <div className="flex flex-col items-center justify-center text-center gap-1.5 px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl min-w-[130px]">
                                             <span className="text-xl">🔒</span>
                                             <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest leading-tight">Shop Admin<br />Approval Only</p>
@@ -744,7 +666,258 @@ export function SuperAdminDashboard() {
                 </div>
             )}
 
+            {/* Global Delete Confirmation Modal for Shops */}
+            <DeleteConfirmationModal
+                isOpen={deleteDialog.isOpen}
+                onClose={() => setDeleteDialog({ ...deleteDialog, isOpen: false })}
+                onConfirm={confirmDeleteShop}
+                title="Confirm Shop Deletion"
+                message="Are you sure you want to permanently delete this shop and all its users, inventory items, sales records, and settings? This action cannot be undone."
+                itemName={deleteDialog.name}
+                isDeleting={isDeleting}
+            />
 
+            {/* Edit Shop Modal */}
+            {editingShop && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-zinc-900/60 backdrop-blur-md animate-in fade-in duration-200">
+                    <div className="bg-white w-full max-w-xl rounded-3xl shadow-2xl overflow-hidden border border-zinc-200 animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+                        {/* Modal Header */}
+                        <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-100 bg-zinc-50/50">
+                            <div className="flex items-center gap-3">
+                                <div className="p-3 bg-amber-50 rounded-2xl border border-amber-200 text-amber-600">
+                                    <Edit2 className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-black text-zinc-900 uppercase tracking-tight">Edit Shop Details</h2>
+                                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">#{editingShop._id || editingShop.id} • {editingShop.name}</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setEditingShop(null)}
+                                className="p-2 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 rounded-xl transition-all"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        {/* Modal Body */}
+                        <form onSubmit={handleSaveShopEdit} className="p-6 overflow-y-auto space-y-5">
+                            {/* Basic Shop Info */}
+                            <div className="space-y-3.5">
+                                <h3 className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Store Profile</h3>
+                                
+                                <div>
+                                    <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1 pl-1">Shop Name *</label>
+                                    <input
+                                        type="text"
+                                        value={editData.name}
+                                        onChange={(e) => setEditData({ ...editData, name: e.target.value })}
+                                        className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 bg-zinc-50 focus:bg-white text-zinc-900 text-sm font-bold outline-none focus:border-green-500 transition-all"
+                                        placeholder="Shop Name"
+                                        required
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1 pl-1">Address</label>
+                                        <input
+                                            type="text"
+                                            value={editData.address}
+                                            onChange={(e) => setEditData({ ...editData, address: e.target.value })}
+                                            className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 bg-zinc-50 focus:bg-white text-zinc-900 text-sm font-bold outline-none focus:border-green-500 transition-all"
+                                            placeholder="Location / City"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1 pl-1">Contact Phone</label>
+                                        <input
+                                            type="text"
+                                            value={editData.contactNumber}
+                                            onChange={(e) => setEditData({ ...editData, contactNumber: e.target.value })}
+                                            className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 bg-zinc-50 focus:bg-white text-zinc-900 text-sm font-bold outline-none focus:border-green-500 transition-all"
+                                            placeholder="+92 300 1234567"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1 pl-1">Store Status</label>
+                                    <select
+                                        value={editData.status}
+                                        onChange={(e) => setEditData({ ...editData, status: e.target.value })}
+                                        className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 bg-zinc-50 focus:bg-white text-zinc-900 text-sm font-bold outline-none focus:border-green-500 transition-all cursor-pointer"
+                                    >
+                                        <option value="active">Active (Full Access)</option>
+                                        <option value="inactive">Inactive (Suspended)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Admin Credentials */}
+                            <div className="pt-4 border-t border-zinc-100 space-y-3.5">
+                                <h3 className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Shop Administrator</h3>
+                                
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1 pl-1">Admin Full Name</label>
+                                        <input
+                                            type="text"
+                                            value={editData.adminFullName}
+                                            onChange={(e) => setEditData({ ...editData, adminFullName: e.target.value })}
+                                            className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 bg-zinc-50 focus:bg-white text-zinc-900 text-sm font-bold outline-none focus:border-green-500 transition-all"
+                                            placeholder="Admin Full Name"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1 pl-1">Admin Email / Username</label>
+                                        <input
+                                            type="email"
+                                            value={editData.adminUsername}
+                                            onChange={(e) => setEditData({ ...editData, adminUsername: e.target.value })}
+                                            className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 bg-zinc-50 focus:bg-white text-zinc-900 text-sm font-bold outline-none focus:border-green-500 transition-all"
+                                            placeholder="admin@shop.com"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1 pl-1">
+                                        Reset Admin Password <span className="text-zinc-400 font-normal lowercase">(leave empty to keep unchanged)</span>
+                                    </label>
+                                    <div className="relative">
+                                        <input
+                                            type={showAdminPassword ? "text" : "password"}
+                                            value={editData.adminPassword}
+                                            onChange={(e) => setEditData({ ...editData, adminPassword: e.target.value })}
+                                            className="w-full px-4 py-2.5 pr-11 rounded-xl border border-zinc-200 bg-zinc-50 focus:bg-white text-zinc-900 text-sm font-bold outline-none focus:border-green-500 transition-all"
+                                            placeholder="Enter new password (min 6 chars)"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowAdminPassword(!showAdminPassword)}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
+                                        >
+                                            {showAdminPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* EasyPaisa Settings */}
+                            <div className="pt-4 border-t border-zinc-100 space-y-3.5">
+                                <h3 className="text-[10px] font-black text-emerald-600 uppercase tracking-widest flex items-center gap-2">
+                                    <span className="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
+                                    EasyPaisa Account
+                                </h3>
+                                <div>
+                                    <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1 pl-1">EasyPaisa Mobile Number</label>
+                                    <input
+                                        type="tel"
+                                        value={editData.easypaisaNumber}
+                                        onChange={(e) => setEditData({ ...editData, easypaisaNumber: e.target.value })}
+                                        className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 bg-zinc-50 focus:bg-white text-zinc-900 text-sm font-bold outline-none focus:border-emerald-500 transition-all"
+                                        placeholder="03001234567"
+                                    />
+                                    <p className="text-[9px] text-zinc-400 font-bold mt-1 pl-1">Online orders will be directed to this EasyPaisa account.</p>
+                                </div>
+                            </div>
+
+                            {/* Actions */}
+                            <div className="flex items-center gap-3 pt-4 border-t border-zinc-100">
+                                <button
+                                    type="submit"
+                                    disabled={isSavingShop}
+                                    className="flex-1 py-3.5 bg-green-600 hover:bg-green-700 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-green-600/20 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                                >
+                                    {isSavingShop ? (
+                                        <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                                    ) : (
+                                        <>
+                                            <Save className="w-4 h-4" /> Save Changes
+                                        </>
+                                    )}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setEditingShop(null)}
+                                    disabled={isSavingShop}
+                                    className="px-6 py-3.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl font-black text-xs uppercase tracking-widest transition-all"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Shop View Modal */}
+            {viewingShop && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-zinc-900/60 backdrop-blur-md animate-in fade-in duration-200">
+                    <div className="bg-white w-full max-w-[420px] rounded-3xl shadow-2xl overflow-hidden border border-zinc-200 animate-in zoom-in-95 duration-200">
+                        <div className="relative p-5 space-y-4">
+                            <button
+                                onClick={() => setViewingShop(null)}
+                                className="absolute top-4 right-4 p-1.5 bg-zinc-100 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-200 rounded-xl transition-all active:scale-95"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+
+                            <div className="flex items-center gap-3.5 pt-1 pr-6">
+                                <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 shrink-0">
+                                    <Store className="w-6 h-6 text-emerald-600" />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-2 mb-0.5">
+                                        <h2 className="text-xl font-black text-zinc-900 uppercase tracking-tight truncate">{viewingShop.name}</h2>
+                                        <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border shrink-0 ${viewingShop.status === 'active' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' : 'bg-rose-500/10 text-rose-600 border-rose-500/20'}`}>
+                                            {viewingShop.status}
+                                        </span>
+                                    </div>
+                                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest truncate">{viewingShop.address || "Attock, Pakistan"}</p>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2.5 pt-2 border-t border-zinc-100">
+                                <div className="space-y-2">
+                                    <h4 className="text-[9px] font-black text-emerald-600 uppercase tracking-widest pl-1">Store Identity</h4>
+                                    <div className="bg-zinc-50 p-2.5 rounded-xl border border-zinc-100 space-y-0.5">
+                                        <p className="text-[8px] font-black text-zinc-400 uppercase tracking-widest">Reference ID</p>
+                                        <p className="text-[11px] font-bold text-zinc-700 truncate">#{String(viewingShop._id || viewingShop.id).toUpperCase()}</p>
+                                    </div>
+                                    <div className="bg-zinc-50 p-2.5 rounded-xl border border-zinc-100 space-y-0.5">
+                                        <p className="text-[8px] font-black text-zinc-400 uppercase tracking-widest">Contact</p>
+                                        <p className="text-[11px] font-bold text-zinc-700">{viewingShop.contactNumber || "Not Provided"}</p>
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <h4 className="text-[9px] font-black text-emerald-600 uppercase tracking-widest pl-1">Administrator</h4>
+                                    <div className="bg-zinc-50 p-2.5 rounded-xl border border-zinc-100 space-y-0.5">
+                                        <p className="text-[8px] font-black text-zinc-400 uppercase tracking-widest">Authorized</p>
+                                        <p className="text-[11px] font-bold text-zinc-800 truncate">{viewingShop.ownerDetails?.fullName || viewingShop.adminFullName || "Shop Admin"}</p>
+                                    </div>
+                                    <div className="bg-zinc-50 p-2.5 rounded-xl border border-zinc-100 space-y-0.5">
+                                        <p className="text-[8px] font-black text-zinc-400 uppercase tracking-widest">Email Username</p>
+                                        <p className="text-[10px] font-bold text-emerald-600 truncate">{viewingShop.ownerDetails?.email || viewingShop.adminUsername || "Not Provided"}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button
+                                onClick={() => {
+                                    startEdit(viewingShop);
+                                    setViewingShop(null);
+                                }}
+                                className="w-full mt-2 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-white rounded-2xl font-black text-[10px] uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95"
+                            >
+                                <Edit2 className="w-3.5 h-3.5" />
+                                Edit Shop Details
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Lightbox Screenshot Modal - VIEW ONLY for SuperAdmin */}
             {selectedProofImage && (
@@ -764,7 +937,6 @@ export function SuperAdminDashboard() {
                 </div>
             )}
 
-
             {/* Order / Screenshot Delete Confirmation Modal */}
             <DeleteConfirmationModal
                 isOpen={deleteOrderModal.isOpen}
@@ -772,7 +944,7 @@ export function SuperAdminDashboard() {
                 onConfirm={confirmDeleteOrderAction}
                 title={deleteOrderModal.title}
                 message={deleteOrderModal.message}
-                itemName={deleteOrderModal.orderId ? `#${deleteOrderModal.orderId.slice(-6).toUpperCase()}` : ''}
+                itemName={deleteOrderModal.orderId ? `#${String(deleteOrderModal.orderId).slice(-6).toUpperCase()}` : ''}
                 isDeleting={isDeletingOrder}
             />
         </div>

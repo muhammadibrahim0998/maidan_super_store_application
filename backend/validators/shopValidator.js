@@ -5,7 +5,7 @@ export const shopSchema = z.object({
     .min(3, { message: "Shop name must be at least 3 characters" })
     .max(100, { message: "Shop name too long" }),
   address: z.string()
-    .min(5, { message: "Address must be at least 5 characters" })
+    .min(3, { message: "Address must be at least 3 characters" })
     .max(200, { message: "Address too long" })
     .optional()
     .or(z.literal('')),
@@ -15,13 +15,16 @@ export const shopSchema = z.object({
     .or(z.literal('')),
   adminUsername: z.string()
     .email({ message: "Invalid email address for Admin" })
-    .optional(),
+    .optional()
+    .or(z.literal('')),
   adminPassword: z.string()
     .min(6, { message: "Password must be at least 6 characters" })
-    .optional(),
+    .optional()
+    .or(z.literal('')),
   adminFullName: z.string()
     .min(3, { message: "Full name must be at least 3 characters" })
-    .optional(),
+    .optional()
+    .or(z.literal('')),
   adminEmail: z.string().email({ message: "Invalid email address" }).optional().or(z.literal('')),
   adminPhone: z.string().optional().or(z.literal('')),
   logoUrl: z.string().url({ message: "Invalid URL format" }).optional().or(z.literal('')),

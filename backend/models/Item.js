@@ -1,139 +1,41 @@
-import mongoose from 'mongoose';
+import { BaseMySQLModel } from './BaseMySQLModel.js';
 
-const itemSchema = new mongoose.Schema({
-  shopId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Shop',
-    required: true
-  },
-  name: {
-    type: String,
-    required: true,
-    trim: true,
-  },
-  category: {
-    type: String,
-    required: true,
-    trim: true,
-  },
-  stock: {
-    type: Number,
-    required: true,
-    default: 0,
-  },
-  minStock: {
-    type: Number,
-    required: true,
-    default: 0,
-  },
-  price: { 
-    type: Number, 
-    required: true 
-  },
-  costPrice: { 
-    type: Number, 
-    default: 0 
-  },
-  pricePerPeti: {
-    type: Number,
-    default: 0
-  },
-  pricePerTray: {
-    type: Number,
-    default: 0
-  },
-  pricePerEgg: {
-    type: Number,
-    default: 0
-  },
-  images: { 
-    type: [String], 
-    default: [] 
-  },
-  description: { 
-    type: String, 
-    default: '' 
-  },
-  mfgDate: {
-    type: Date
-  },
-  expiryDate: {
-    type: Date
-  },
-  // Units & Packaging Ratios
-  unitType: {
-    type: String,
-    default: 'box'
-  },
-  traysPerPeti: {
-    type: Number,
-    default: 12
-  },
-  eggsPerTray: {
-    type: Number,
-    default: 30
-  },
-  petiQuantity: {
-    type: Number,
-    default: 0
-  },
-  trayQuantity: {
-    type: Number,
-    default: 0
-  },
-  eggQuantity: {
-    type: Number,
-    default: 0
-  },
-  // Supplier & Purchase Payment Details
-  supplierName: {
-    type: String,
-    default: ''
-  },
-  supplierPhone: {
-    type: String,
-    default: ''
-  },
-  supplierLocation: {
-    type: String,
-    default: ''
-  },
-  totalPurchaseCost: {
-    type: Number,
-    default: 0
-  },
-  amountPaidToSupplier: {
-    type: Number,
-    default: 0
-  },
-  cashPaidToSupplier: {
-    type: Number,
-    default: 0
-  },
-  bankPaidToSupplier: {
-    type: Number,
-    default: 0
-  },
-  dueAmountToSupplier: {
-    type: Number,
-    default: 0
-  },
-  paymentMethod: {
-    type: String,
-    default: 'Cash'
-  },
-  paymentReceipt: {
-    type: String,
-    default: ''
-  },
-  isOnlinePayment: {
-    type: Boolean,
-    default: false
-  },
-  lastUpdated: { 
-    type: String, 
-    default: () => new Date().toISOString().split('T')[0]
+export default class Item extends BaseMySQLModel {
+  static tableName = 'items';
+  static jsonFields = ['images'];
+
+  constructor(data = {}) {
+    super(data);
+    this.shopId = data.shopId || '';
+    this.name = data.name || '';
+    this.category = data.category || 'General Perfumes';
+    this.stock = Number(data.stock) || 0;
+    this.minStock = Number(data.minStock) || 0;
+    this.price = Number(data.price) || 0;
+    this.costPrice = Number(data.costPrice) || 0;
+    this.pricePerPeti = Number(data.pricePerPeti) || 0;
+    this.pricePerTray = Number(data.pricePerTray) || 0;
+    this.pricePerEgg = Number(data.pricePerEgg) || 0;
+    this.unitType = data.unitType || 'egg';
+    this.petiQuantity = Number(data.petiQuantity) || 0;
+    this.totalPurchaseCost = Number(data.totalPurchaseCost) || 0;
+    this.amountPaidToSupplier = Number(data.amountPaidToSupplier) || 0;
+    this.dueAmountToSupplier = Number(data.dueAmountToSupplier) || 0;
+    this.supplierName = data.supplierName || '';
+    this.supplierPhone = data.supplierPhone || '';
+    this.supplierAddress = data.supplierAddress || data.supplierLocation || '';
+    this.supplierPetiPrice = Number(data.supplierPetiPrice) || 0;
+    this.supplierInvoiceNo = data.supplierInvoiceNo || '';
+    this.supplierInvoiceDate = data.supplierInvoiceDate || null;
+    this.paymentMethod = data.paymentMethod || 'CASH';
+    this.paymentReceipt = data.paymentReceipt || '';
+    this.isOnlinePayment = data.isOnlinePayment ? 1 : 0;
+    this.isCompanyStock = data.isCompanyStock ? 1 : 0;
+    this.images = Array.isArray(data.images) ? data.images : (typeof data.images === 'string' ? JSON.parse(data.images || '[]') : []);
+    this.description = data.description || '';
+    this.mfgDate = data.mfgDate || null;
+    this.expiryDate = data.expiryDate || null;
+    this.createdAt = data.createdAt || new Date();
+    this.updatedAt = data.updatedAt || new Date();
   }
-}, { timestamps: true });
-
-export default mongoose.model('Item', itemSchema);
+}

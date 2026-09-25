@@ -218,7 +218,7 @@ router.get('/orders', authenticate, requireShopAdmin, async (req, res) => {
     const targetRaw = (req.user?.role === 'shop_admin') ? req.user.shopId : shopId;
     if (targetRaw) {
       const resolved = await resolveShopId(targetRaw);
-      if (resolved && mongoose.Types.ObjectId.isValid(resolved)) {
+      if (resolved) {
         query.shopId = resolved;
       }
     }

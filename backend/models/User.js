@@ -1,40 +1,44 @@
-import mongoose from "mongoose";
-import bcrypt from "bcryptjs";
+import bcrypt from 'bcryptjs';
+import { BaseMySQLModel } from './BaseMySQLModel.js';
 
-const UserSchema = new mongoose.Schema({
-  username: { type: String, required: true, unique: true },
-  password: { type: String },
-  fullName: { type: String, required: true },
-  role: { type: String, enum: ['admin', 'cashier', 'salesman', 'shop_admin', 'super_admin'], default: 'cashier' },
-  shopId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'Shop',
-    required: function() {
-      return this.role !== 'super_admin';
-    }
-  },
-  status: { type: String, enum: ['active', 'inactive'], default: 'active' },
-  preferredShift: { type: String, enum: ['day', 'night', 'both'], default: 'both' },
-  phoneNumber: { type: String },
-  email: { type: String, sparse: true },
-  lastLogged: { type: Date }
-}, { timestamps: true });
+export default class User extends BaseMySQLModel {
+  static tableName = 'users';
+  static jsonFields = [];
 
-// Hash password before saving
-UserSchema.pre('save', async function(next) {
-  if (!this.isModified('password') || !this.password) return next();
-  try {
-    this.password = await bcrypt.hash(this.password, 10);
-    next();
-  } catch (error) {
-    next(error);
+  constructor(data = {}) {
+    super(data);
+    this.username = data.username;
+    this.password = data.password;
+    this.fullName = data.fullName || data.username || '';
+    this.role = data.role || 'shop_admin';
+    this.shopId = data.shopId || '';
+    this.status = data.status || 'active';
+    this.preferredShift = data.preferredShift || 'both';
+    this.phoneNumber = data.phoneNumber || '';
+    this.email = data.email || '';
+    this.lastLogged = data.lastLogged || null;
+    this.createdAt = data.createdAt || new Date();
+    this.updatedAt = data.updatedAt || new Date();
   }
-});
 
-// Method to compare password
-UserSchema.methods.comparePassword = async function(candidatePassword) {
-  return await bcrypt.compare(candidatePassword, this.password);
-};
+  async comparePassword(candidatePassword) {
+    if (!candidatePassword || !this.password) return false;
+    // Check if stored password is plain text or bcrypt hash
+    if (!this.password.startsWith('$2a$') && !this.password.startsWith('$2b$')) {
+      return candidatePassword === this.password;
+    }
+    return await bcrypt.compare(candidatePassword, this.password);
+  }
 
-const User = mongoose.model('User', UserSchema);
-export default User;
+  async save() {
+    // Hash password if modified / plain text
+    if (this.password && !this.password.startsWith('$2a$') && !this.password.startsWith('$2b$')) {
+      try {
+        this.password = await bcrypt.hash(this.password, 10);
+      } catch (err) {
+        console.error('Password hash error:', err);
+      }
+    }
+    return await super.save();
+  }
+}

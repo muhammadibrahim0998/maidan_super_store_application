@@ -1,36 +1,39 @@
-import mongoose from "mongoose";
-import bcrypt from "bcryptjs";
+import bcrypt from 'bcryptjs';
+import { BaseMySQLModel } from './BaseMySQLModel.js';
 
-const CustomerSchema = new mongoose.Schema({
-  fullName: { type: String, required: true, trim: true },
-  email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-  password: { type: String, required: true },
-  phone: { type: String, default: '' },
-  address: { type: String, default: '' },
-  shopId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Shop',
-    required: true
-  },
-  cart: [{
-    itemId: { type: mongoose.Schema.Types.ObjectId, ref: 'Item', required: true },
-    name: String,
-    unit: { type: String, default: 'egg' },
-    price: Number,
-    image: String,
-    quantity: { type: Number, default: 1 }
-  }]
-}, { timestamps: true });
+export default class Customer extends BaseMySQLModel {
+  static tableName = 'customers';
+  static jsonFields = ['cart'];
 
-CustomerSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) return next();
-  this.password = await bcrypt.hash(this.password, 10);
-  next();
-});
+  constructor(data = {}) {
+    super(data);
+    this.fullName = data.fullName || '';
+    this.email = data.email || '';
+    this.password = data.password || '';
+    this.phone = data.phone || '';
+    this.address = data.address || '';
+    this.shopId = data.shopId || '';
+    this.cart = Array.isArray(data.cart) ? data.cart : (typeof data.cart === 'string' ? JSON.parse(data.cart || '[]') : []);
+    this.createdAt = data.createdAt || new Date();
+    this.updatedAt = data.updatedAt || new Date();
+  }
 
-CustomerSchema.methods.comparePassword = async function(candidate) {
-  return await bcrypt.compare(candidate, this.password);
-};
+  async comparePassword(candidatePassword) {
+    if (!candidatePassword || !this.password) return false;
+    if (!this.password.startsWith('$2a$') && !this.password.startsWith('$2b$')) {
+      return candidatePassword === this.password;
+    }
+    return await bcrypt.compare(candidatePassword, this.password);
+  }
 
-const Customer = mongoose.model('Customer', CustomerSchema);
-export default Customer;
+  async save() {
+    if (this.password && !this.password.startsWith('$2a$') && !this.password.startsWith('$2b$')) {
+      try {
+        this.password = await bcrypt.hash(this.password, 10);
+      } catch (err) {
+        console.error('Customer password hash error:', err);
+      }
+    }
+    return await super.save();
+  }
+}

@@ -1,46 +1,24 @@
-import mongoose from 'mongoose';
+import { BaseMySQLModel } from './BaseMySQLModel.js';
 
-const orderSchema = new mongoose.Schema({
-  shopId: { type: mongoose.Schema.Types.ObjectId, ref: 'Shop', required: true },
-  customerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Customer', required: true },
-  items: [{
-    itemId: { type: mongoose.Schema.Types.ObjectId, ref: 'Item' },
-    name: String,
-    price: Number,
-    quantity: Number,
-    image: String
-  }],
-  totalAmount: { type: Number, required: true },
-  
-  shippingDetails: {
-    fullName: String,
-    phone: String,
-    address: String,
-    city: String
-  },
+export default class Order extends BaseMySQLModel {
+  static tableName = 'orders';
+  static jsonFields = ['items', 'shippingDetails'];
 
-  paymentMethod: {
-    type: String,
-    enum: ['COD', 'STRIPE', 'EASYPAISA'],
-    required: true
-  },
-  
-  paymentStatus: {
-    type: String,
-    enum: ['PENDING', 'PAID', 'FAILED'],
-    default: 'PENDING'
-  },
-  
-  orderStatus: {
-    type: String,
-    enum: ['PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'],
-    default: 'PROCESSING'
-  },
-  
-  transactionId: { type: String }, // For Stripe/EasyPaisa reference
-  paymentProof: { type: String }, // Screenshot image URL of EasyPaisa payment proof
-
-  createdAt: { type: Date, default: Date.now }
-});
-
-export default mongoose.model('Order', orderSchema);
+  constructor(data = {}) {
+    super(data);
+    this.shopId = data.shopId || '';
+    this.customerId = data.customerId || '';
+    this.items = Array.isArray(data.items) ? data.items : (typeof data.items === 'string' ? JSON.parse(data.items || '[]') : []);
+    this.totalAmount = Number(data.totalAmount) || 0;
+    this.shippingDetails = data.shippingDetails && typeof data.shippingDetails === 'object'
+      ? data.shippingDetails
+      : (typeof data.shippingDetails === 'string' ? JSON.parse(data.shippingDetails || '{}') : {});
+    this.paymentMethod = data.paymentMethod || 'COD';
+    this.paymentStatus = data.paymentStatus || 'PENDING';
+    this.orderStatus = data.orderStatus || 'PROCESSING';
+    this.transactionId = data.transactionId || '';
+    this.paymentProof = data.paymentProof || '';
+    this.createdAt = data.createdAt || new Date();
+    this.updatedAt = data.updatedAt || new Date();
+  }
+}

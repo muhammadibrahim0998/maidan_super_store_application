@@ -12,9 +12,13 @@ export const UserProvider = ({ children }) => {
       try {
         const data = await getMe();
         setUser(data.user);
+        if (data.user) {
+          localStorage.setItem('nexflow_user', JSON.stringify(data.user));
+        }
       } catch (error) {
         setUser(null);
         localStorage.removeItem('nexflow_token');
+        localStorage.removeItem('nexflow_user');
       } finally {
         setLoading(false);
       }
@@ -27,6 +31,9 @@ export const UserProvider = ({ children }) => {
       const data = await apiLogin({ username, password });
       if (data.token) {
         localStorage.setItem('nexflow_token', data.token);
+      }
+      if (data.user) {
+        localStorage.setItem('nexflow_user', JSON.stringify(data.user));
       }
       setUser(data.user);
       // Role-based redirect after login
@@ -54,6 +61,7 @@ export const UserProvider = ({ children }) => {
     } finally {
       setUser(null);
       localStorage.removeItem('nexflow_token');
+      localStorage.removeItem('nexflow_user');
       localStorage.removeItem('nexflow_shift');
     }
   };

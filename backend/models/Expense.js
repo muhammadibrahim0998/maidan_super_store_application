@@ -1,18 +1,21 @@
-import mongoose from 'mongoose';
+import { BaseMySQLModel } from './BaseMySQLModel.js';
 
-const expenseSchema = new mongoose.Schema({
-  shopId: { type: String, required: true },
-  title: { type: String, required: true },
-  category: { 
-    type: String, 
-    default: 'Other' 
-  },
-  amount: { type: Number, required: true },
-  paymentMethod: { type: String, enum: ['CASH', 'BANK', 'ONLINE', 'Paid'], default: 'CASH' },
-  paymentSource: { type: String, enum: ['CASH', 'BANK', 'ONLINE'], default: 'CASH' },
-  expenseDate: { type: Date, default: Date.now },
-  notes: { type: String, default: '' },
-  createdBy: { type: String, default: 'Shop Admin' }
-}, { timestamps: true });
+export default class Expense extends BaseMySQLModel {
+  static tableName = 'expenses';
+  static jsonFields = [];
 
-export default mongoose.model('Expense', expenseSchema);
+  constructor(data = {}) {
+    super(data);
+    this.shopId = data.shopId || '';
+    this.title = data.title || '';
+    this.category = data.category || 'Other';
+    this.amount = Number(data.amount) || 0;
+    this.paymentMethod = data.paymentMethod || 'CASH';
+    this.paymentSource = data.paymentSource || 'CASH';
+    this.expenseDate = data.expenseDate || new Date();
+    this.notes = data.notes || '';
+    this.createdBy = data.createdBy || 'Shop Admin';
+    this.createdAt = data.createdAt || new Date();
+    this.updatedAt = data.updatedAt || new Date();
+  }
+}
