@@ -26,7 +26,8 @@ import {
   Building2,
   Package,
   Search,
-  Truck
+  Truck,
+  CreditCard
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import companyLogo from '../image/logo.png';
@@ -142,6 +143,14 @@ export function Sidebar({ isMobileOpen, onCloseMobile, isCollapsed, onToggleSide
               {/* Only Shop Admin can view purchases */}
               {isShopAdmin() && (
                 <NavItem to="/purchases" icon={Truck} label="Purchases" />
+              )}
+
+              {/* Credit & Khata Pages */}
+              {(isShopAdmin() || isSuperAdmin()) && (
+                <>
+                  <NavItem to="/customer-credit" icon={CreditCard} label="Customer Credit" />
+                  <NavItem to="/purchase-credit" icon={Truck} label="Purchase Credit" />
+                </>
               )}
 
               {/* Only Shop Admin & Super Admin can manage teams */}

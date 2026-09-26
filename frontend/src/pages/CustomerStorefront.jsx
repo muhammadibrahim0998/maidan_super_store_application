@@ -20,6 +20,8 @@ import { DeleteConfirmationModal } from '../components/DeleteConfirmationModal.j
 import WalkInBillModal from '../components/WalkInBillModal.jsx';
 import { OrdersManagement } from '../components/OrdersManagement.jsx';
 import { PurchasesManagement } from '../components/PurchasesManagement.jsx';
+import { CustomerCreditManagement } from '../components/CustomerCreditManagement.jsx';
+import { PurchaseCreditManagement } from '../components/PurchaseCreditManagement.jsx';
 import { SupplierPurchaseSummaryCard } from '../components/SupplierPurchaseSummaryCard.jsx';
 import { CountUpNumber } from '../components/CountUpNumber.jsx';
 import { ShopAdminCharts } from '../components/ShopAdminCharts.jsx';
@@ -4844,6 +4846,28 @@ function StoreContent({ shopId }) {
                   </button>
 
                   <button
+                    onClick={() => { setActiveView('customer-credit'); setIsMobileOpen(false); }}
+                    className={`w-full flex items-center gap-3 group px-3.5 py-2 mx-3 rounded-xl text-[13.5px] font-bold tracking-wide transition-all duration-300 ease-out max-w-[200px] ${activeView === 'customer-credit'
+                      ? "bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-400 text-zinc-950 font-black border-t border-t-amber-200 border-b-4 border-b-amber-800 shadow-[0_8px_22px_rgba(245,158,11,0.6)] translate-x-1"
+                      : "text-white hover:text-zinc-950 hover:bg-gradient-to-r hover:from-amber-400 hover:to-amber-500 border-t border-t-transparent hover:border-t-amber-200 border-b-4 border-b-transparent hover:border-b-amber-800 hover:shadow-[0_8px_22px_rgba(245,158,11,0.6)] hover:translate-x-1.5 hover:scale-105"
+                      }`}
+                  >
+                    <CreditCard className="w-4 h-4 text-emerald-400 group-hover:text-zinc-950 transition-colors" />
+                    <span className="truncate">Customer Credit</span>
+                  </button>
+
+                  <button
+                    onClick={() => { setActiveView('purchase-credit'); setIsMobileOpen(false); }}
+                    className={`w-full flex items-center gap-3 group px-3.5 py-2 mx-3 rounded-xl text-[13.5px] font-bold tracking-wide transition-all duration-300 ease-out max-w-[200px] ${activeView === 'purchase-credit'
+                      ? "bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-400 text-zinc-950 font-black border-t border-t-amber-200 border-b-4 border-b-amber-800 shadow-[0_8px_22px_rgba(245,158,11,0.6)] translate-x-1"
+                      : "text-white hover:text-zinc-950 hover:bg-gradient-to-r hover:from-amber-400 hover:to-amber-500 border-t border-t-transparent hover:border-t-amber-200 border-b-4 border-b-transparent hover:border-b-amber-800 hover:shadow-[0_8px_22px_rgba(245,158,11,0.6)] hover:translate-x-1.5 hover:scale-105"
+                      }`}
+                  >
+                    <Truck className="w-4 h-4 text-cyan-400 group-hover:text-zinc-950 transition-colors" />
+                    <span className="truncate">Purchase Credit</span>
+                  </button>
+
+                  <button
                     onClick={() => { setActiveView('report-sales'); setIsMobileOpen(false); }}
                     className={`w-full flex items-center gap-3 group px-3.5 py-2 mx-3 rounded-xl text-[13.5px] font-bold tracking-wide transition-all duration-300 ease-out max-w-[200px] ${activeView === 'report-sales'
                       ? "bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-400 text-zinc-950 font-black border-t border-t-amber-200 border-b-4 border-b-amber-800 shadow-[0_8px_22px_rgba(245,158,11,0.6)] translate-x-1"
@@ -5022,14 +5046,14 @@ function StoreContent({ shopId }) {
                   {isAdminUser ? (
                     <div className="space-y-3.5">
 
-                      {/* ─── MASTER EXECUTIVE FINANCIAL SUMMARY CARD (CLEAN GRAY THEME) ─── */}
-                      <div className="bg-slate-200/70 border border-slate-300/90 rounded-2xl p-3.5 sm:p-4 shadow-sm text-slate-900 space-y-3 relative overflow-hidden">
+                      {/* ─── MASTER EXECUTIVE FINANCIAL SUMMARY CARD (3D GRAY THEME WITH SMOOTH TRANSITIONS) ─── */}
+                      <div className="bg-gradient-to-b from-slate-100/95 via-slate-200/90 to-slate-300/85 border border-slate-300/90 rounded-[2rem] p-4 sm:p-6 shadow-[0_16px_40px_rgba(0,0,0,0.12),inset_0_1px_1px_rgba(255,255,255,0.9)] hover:shadow-[0_24px_50px_rgba(0,0,0,0.18)] transition-all duration-500 hover:-translate-y-1 text-slate-900 space-y-4 relative overflow-hidden backdrop-blur-md">
 
                         {/* Top Header with Timeframe Filter */}
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 border-b border-slate-300/80 pb-2.5 relative z-10">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-300/80 pb-3 relative z-10">
                           <div>
                             <div className="flex items-center gap-1.5 text-amber-700 text-[10px] font-black uppercase tracking-wider">
-                              <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                              <Sparkles className="w-3.5 h-3.5 text-amber-600 animate-pulse" />
                               Executive Financial Summary
                             </div>
                             <h2 className="text-base sm:text-lg font-black text-slate-900 uppercase tracking-tight flex items-center gap-2">
@@ -5038,7 +5062,7 @@ function StoreContent({ shopId }) {
                           </div>
 
                           {/* Timeframe Switcher */}
-                          <div className="flex items-center bg-white border border-slate-300 rounded-xl p-0.5 shadow-xs gap-0.5">
+                          <div className="flex items-center bg-white/90 border border-slate-300 rounded-xl p-1 shadow-inner gap-1">
                             {[
                               { id: 'DAY', label: 'Today' },
                               { id: 'MONTH', label: 'This Month' },
@@ -5048,9 +5072,9 @@ function StoreContent({ shopId }) {
                               <button
                                 key={t.id}
                                 onClick={() => setReportTimeframe(t.id)}
-                                className={`px-2.5 py-1 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                                className={`px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all duration-200 cursor-pointer ${
                                   reportTimeframe === t.id
-                                    ? 'bg-slate-900 text-white shadow-xs'
+                                    ? 'bg-slate-900 text-white shadow-md scale-105'
                                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                                 }`}
                               >
@@ -5060,47 +5084,47 @@ function StoreContent({ shopId }) {
                           </div>
                         </div>
 
-                        {/* Top Highlights Banner: Total Sales Revenue */}
-                        <div className="bg-white border border-emerald-500/40 rounded-xl p-3 sm:p-3.5 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 relative z-10">
-                          <div className="space-y-0.5">
-                            <div className="flex items-center gap-1.5 text-emerald-700 text-[10.5px] font-black uppercase tracking-wider">
-                              <ShoppingBag className="w-3.5 h-3.5 text-emerald-600" />
+                        {/* Top Highlights Banner: Total Sales Revenue (3D Elevated Card) */}
+                        <div className="bg-gradient-to-r from-white via-slate-50 to-emerald-50/50 border-2 border-emerald-500/40 rounded-2xl p-4 sm:p-5 shadow-[0_10px_30px_rgba(16,185,129,0.15),inset_0_1px_1px_rgba(255,255,255,0.9)] hover:shadow-[0_18px_40px_rgba(16,185,129,0.25)] hover:-translate-y-1 hover:scale-[1.008] transition-all duration-300 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10 group">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1.5 text-emerald-700 text-[11px] font-black uppercase tracking-wider">
+                              <ShoppingBag className="w-4 h-4 text-emerald-600 group-hover:scale-110 transition-transform" />
                               Total Sales Revenue ({reportTimeframe === 'DAY' ? 'Today' : reportTimeframe === 'MONTH' ? 'This Month' : reportTimeframe === 'YEAR' ? 'This Year' : 'All-Time'})
                             </div>
-                            <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                            <h3 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
                               Rs. {(profitReportStats.totalRevenue || 0).toLocaleString('en-PK')}
                             </h3>
-                            <p className="text-[11px] text-slate-500 font-bold">
+                            <p className="text-xs text-slate-500 font-bold">
                               🛒 {profitReportStats.filteredSalesCount || 0} Orders &bull; {profitReportStats.filteredPurchasesEggs > 0 ? `${(profitReportStats.filteredPurchasesEggs / 360).toFixed(1)} Boxes Sold` : 'Live POS & Online Sales'}
                             </p>
                           </div>
                           <button
                             onClick={() => setActiveView('report-sales')}
-                            className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-wider rounded-lg transition-all shadow-xs flex items-center gap-1.5 cursor-pointer shrink-0"
+                            className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all duration-300 shadow-[0_4px_15px_rgba(16,185,129,0.4)] hover:shadow-[0_8px_25px_rgba(16,185,129,0.5)] active:scale-95 flex items-center gap-2 cursor-pointer shrink-0 border-b-2 border-emerald-800"
                           >
-                            <TrendingUp className="w-3.5 h-3.5" /> View Sales Report
+                            <TrendingUp className="w-4 h-4" /> View Sales Report
                           </button>
                         </div>
 
-                        {/* ─── 4 MAIN SUMMARIZED TOTAL CARDS (COMPACT GRAY THEME) ─── */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3 relative z-10">
+                        {/* ─── 4 MAIN SUMMARIZED TOTAL CARDS (3D GRAY THEME WITH HOVER LIFTS) ─── */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4 relative z-10">
                           
                           {/* 1. TOTAL NET PROFIT */}
-                          <div className={`p-3 sm:p-3.5 rounded-xl bg-slate-50/90 border shadow-xs flex flex-col justify-between transition-all hover:bg-white hover:shadow-sm ${
+                          <div className={`p-4 sm:p-5 rounded-2xl bg-gradient-to-b from-white via-slate-50 to-slate-100/90 border-2 shadow-[0_10px_25px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.9)] hover:shadow-[0_18px_35px_rgba(16,185,129,0.25)] hover:-translate-y-1.5 hover:scale-[1.015] transition-all duration-300 flex flex-col justify-between group ${
                             profitReportStats.finalNetProfit >= 0
-                              ? 'border-emerald-500/40'
-                              : 'border-rose-500/40'
+                              ? 'border-emerald-500/50'
+                              : 'border-rose-500/50'
                           }`}>
-                            <div className="space-y-1">
+                            <div className="space-y-1.5">
                               <div className="flex items-center justify-between">
                                 <span className="text-[11px] font-black uppercase tracking-wider text-emerald-800 flex items-center gap-1.5">
-                                  <Sparkles className="w-3.5 h-3.5 text-emerald-600" /> Total Net Profit
+                                  <Sparkles className="w-4 h-4 text-emerald-600 group-hover:rotate-12 transition-transform" /> Total Net Profit
                                 </span>
-                                <div className="w-6 h-6 rounded-md bg-emerald-100/70 border border-emerald-200 flex items-center justify-center text-emerald-700">
-                                  <TrendingUp className="w-3 h-3" />
+                                <div className="w-7 h-7 rounded-lg bg-emerald-100/80 border border-emerald-300 flex items-center justify-center text-emerald-700 shadow-sm group-hover:scale-110 transition-transform">
+                                  <TrendingUp className="w-3.5 h-3.5" />
                                 </div>
                               </div>
-                              <h4 className={`text-lg sm:text-xl font-black tracking-tight ${profitReportStats.finalNetProfit >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                              <h4 className={`text-xl sm:text-2xl font-black tracking-tight ${profitReportStats.finalNetProfit >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
                                 Rs. {(profitReportStats.finalNetProfit || 0).toLocaleString('en-PK')}
                               </h4>
                               <p className="text-[10px] font-bold text-slate-500">
@@ -5109,24 +5133,24 @@ function StoreContent({ shopId }) {
                             </div>
                             <button
                               onClick={() => setActiveView('report-profit')}
-                              className="mt-2.5 w-full py-1.5 bg-slate-900 hover:bg-emerald-600 text-white rounded-lg text-[11px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                              className="mt-3.5 w-full py-2 bg-slate-900 hover:bg-emerald-600 text-white rounded-xl text-[11px] font-black uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-1.5 cursor-pointer shadow-md hover:shadow-lg active:scale-95 border-b-2 border-slate-950"
                             >
-                              <FileSpreadsheet className="w-3 h-3" /> Full Profit Report
+                              <FileSpreadsheet className="w-3.5 h-3.5" /> Full Profit Report
                             </button>
                           </div>
 
                           {/* 2. TOTAL PURCHASES */}
-                          <div className="p-3 sm:p-3.5 rounded-xl bg-slate-50/90 border border-sky-500/40 shadow-xs flex flex-col justify-between transition-all hover:bg-white hover:shadow-sm">
-                            <div className="space-y-1">
+                          <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-b from-white via-slate-50 to-slate-100/90 border-2 border-sky-500/50 shadow-[0_10px_25px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.9)] hover:shadow-[0_18px_35px_rgba(14,165,233,0.25)] hover:-translate-y-1.5 hover:scale-[1.015] transition-all duration-300 flex flex-col justify-between group">
+                            <div className="space-y-1.5">
                               <div className="flex items-center justify-between">
                                 <span className="text-[11px] font-black uppercase tracking-wider text-sky-800 flex items-center gap-1.5">
-                                  <Truck className="w-3.5 h-3.5 text-sky-600" /> Total Purchases
+                                  <Truck className="w-4 h-4 text-sky-600 group-hover:translate-x-1 transition-transform" /> Total Purchases
                                 </span>
-                                <div className="w-6 h-6 rounded-md bg-sky-100/70 border border-sky-200 flex items-center justify-center text-sky-700">
-                                  <Truck className="w-3 h-3" />
+                                <div className="w-7 h-7 rounded-lg bg-sky-100/80 border border-sky-300 flex items-center justify-center text-sky-700 shadow-sm group-hover:scale-110 transition-transform">
+                                  <Truck className="w-3.5 h-3.5" />
                                 </div>
                               </div>
-                              <h4 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
+                              <h4 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
                                 Rs. {(profitReportStats.totalPurchasesCost || purchasesLiveBreakdown.totalPurchaseCost || 0).toLocaleString('en-PK')}
                               </h4>
                               <p className="text-[10px] font-bold text-slate-500">
@@ -5135,24 +5159,24 @@ function StoreContent({ shopId }) {
                             </div>
                             <button
                               onClick={() => setActiveView('purchases')}
-                              className="mt-2.5 w-full py-1.5 bg-slate-900 hover:bg-sky-600 text-white rounded-lg text-[11px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                              className="mt-3.5 w-full py-2 bg-slate-900 hover:bg-sky-600 text-white rounded-xl text-[11px] font-black uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-1.5 cursor-pointer shadow-md hover:shadow-lg active:scale-95 border-b-2 border-slate-950"
                             >
-                              <Truck className="w-3 h-3" /> View Purchases
+                              <Truck className="w-3.5 h-3.5" /> View Purchases
                             </button>
                           </div>
 
                           {/* 3. TOTAL EXPENSES */}
-                          <div className="p-3 sm:p-3.5 rounded-xl bg-slate-50/90 border border-rose-500/40 shadow-xs flex flex-col justify-between transition-all hover:bg-white hover:shadow-sm">
-                            <div className="space-y-1">
+                          <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-b from-white via-slate-50 to-slate-100/90 border-2 border-rose-500/50 shadow-[0_10px_25px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.9)] hover:shadow-[0_18px_35px_rgba(244,63,94,0.25)] hover:-translate-y-1.5 hover:scale-[1.015] transition-all duration-300 flex flex-col justify-between group">
+                            <div className="space-y-1.5">
                               <div className="flex items-center justify-between">
                                 <span className="text-[11px] font-black uppercase tracking-wider text-rose-800 flex items-center gap-1.5">
-                                  <FileText className="w-3.5 h-3.5 text-rose-600" /> Total Expenses
+                                  <FileText className="w-4 h-4 text-rose-600 group-hover:scale-110 transition-transform" /> Total Expenses
                                 </span>
-                                <div className="w-6 h-6 rounded-md bg-rose-100/70 border border-rose-200 flex items-center justify-center text-rose-700">
-                                  <FileText className="w-3 h-3" />
+                                <div className="w-7 h-7 rounded-lg bg-rose-100/80 border border-rose-300 flex items-center justify-center text-rose-700 shadow-sm group-hover:scale-110 transition-transform">
+                                  <FileText className="w-3.5 h-3.5" />
                                 </div>
                               </div>
-                              <h4 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
+                              <h4 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
                                 Rs. {(profitReportStats.totalExpenses || dynamicExpenseStats.totalExp || 0).toLocaleString('en-PK')}
                               </h4>
                               <p className="text-[10px] font-bold text-slate-500">
@@ -5161,24 +5185,24 @@ function StoreContent({ shopId }) {
                             </div>
                             <button
                               onClick={() => setActiveView('report-expenses')}
-                              className="mt-2.5 w-full py-1.5 bg-slate-900 hover:bg-rose-600 text-white rounded-lg text-[11px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                              className="mt-3.5 w-full py-2 bg-slate-900 hover:bg-rose-600 text-white rounded-xl text-[11px] font-black uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-1.5 cursor-pointer shadow-md hover:shadow-lg active:scale-95 border-b-2 border-slate-950"
                             >
-                              <FileText className="w-3 h-3" /> View Expenses
+                              <FileText className="w-3.5 h-3.5" /> View Expenses
                             </button>
                           </div>
 
                           {/* 4. TOTAL DAMAGED STOCK & LOSS */}
-                          <div className="p-3 sm:p-3.5 rounded-xl bg-slate-50/90 border border-amber-500/40 shadow-xs flex flex-col justify-between transition-all hover:bg-white hover:shadow-sm">
-                            <div className="space-y-1">
+                          <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-b from-white via-slate-50 to-slate-100/90 border-2 border-amber-500/50 shadow-[0_10px_25px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.9)] hover:shadow-[0_18px_35px_rgba(245,158,11,0.25)] hover:-translate-y-1.5 hover:scale-[1.015] transition-all duration-300 flex flex-col justify-between group">
+                            <div className="space-y-1.5">
                               <div className="flex items-center justify-between">
                                 <span className="text-[11px] font-black uppercase tracking-wider text-amber-800 flex items-center gap-1.5">
-                                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600" /> Damaged Loss
+                                  <AlertTriangle className="w-4 h-4 text-amber-600 group-hover:animate-bounce" /> Damaged Loss
                                 </span>
-                                <div className="w-6 h-6 rounded-md bg-amber-100/70 border border-amber-200 flex items-center justify-center text-amber-700">
-                                  <PackageX className="w-3 h-3" />
+                                <div className="w-7 h-7 rounded-lg bg-amber-100/80 border border-amber-300 flex items-center justify-center text-amber-700 shadow-sm group-hover:scale-110 transition-transform">
+                                  <PackageX className="w-3.5 h-3.5" />
                                 </div>
                               </div>
-                              <h4 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
+                              <h4 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
                                 Rs. {(profitReportStats.totalDamagedLoss || dynamicExpenseStats.totalDamaged || 0).toLocaleString('en-PK')}
                               </h4>
                               <p className="text-[10px] font-bold text-slate-500">
@@ -5187,24 +5211,24 @@ function StoreContent({ shopId }) {
                             </div>
                             <button
                               onClick={() => setActiveView('damaged-products')}
-                              className="mt-2.5 w-full py-1.5 bg-slate-900 hover:bg-amber-600 text-white rounded-lg text-[11px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                              className="mt-3.5 w-full py-2 bg-slate-900 hover:bg-amber-600 text-white rounded-xl text-[11px] font-black uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-1.5 cursor-pointer shadow-md hover:shadow-lg active:scale-95 border-b-2 border-slate-950"
                             >
-                              <PackageX className="w-3 h-3" /> View Damaged
+                              <PackageX className="w-3.5 h-3.5" /> View Damaged
                             </button>
                           </div>
 
                         </div>
 
                         {/* Bottom Footer Note */}
-                        <div className="flex items-center justify-between pt-2 border-t border-slate-300 text-xs flex-wrap gap-2 text-slate-500 text-[10px] font-bold">
-                          <span>Maidan Perfume Shop Financial Ledger &bull; Real-time MongoDB Synchronized</span>
+                        <div className="flex items-center justify-between pt-3 border-t border-slate-300 text-xs flex-wrap gap-2 text-slate-600 text-[10px] font-bold">
+                          <span>Maidan Perfume Shop Financial Ledger &bull; Real-time MySQL Synchronized</span>
                           <span className="text-emerald-700 font-black">All totals summarized in real-time</span>
                         </div>
 
                       </div>
 
-                      {/* ─── DYNAMIC CHARTS & ANALYTICS ─── */}
-                      <div className="bg-slate-50 border border-slate-200 rounded-3xl p-4 sm:p-6 shadow-xl text-slate-900">
+                      {/* ─── DYNAMIC CHARTS & ANALYTICS (3D GRAY CARD CONTAINER) ─── */}
+                      <div className="bg-gradient-to-b from-white via-slate-50 to-slate-100/90 border border-slate-200/90 rounded-3xl p-4 sm:p-6 shadow-[0_12px_35px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.9)] hover:shadow-[0_18px_45px_rgba(0,0,0,0.12)] transition-all duration-300 text-slate-900">
                         <ShopAdminCharts
                           sales={shopSalesList}
                           products={items}
@@ -5216,8 +5240,8 @@ function StoreContent({ shopId }) {
                         />
                       </div>
 
-                      {/* ─── EASYPAISA & CUSTOMER ORDERS VERIFICATION ─── */}
-                      <div className="bg-white border border-zinc-200 rounded-3xl p-6 shadow-xl text-zinc-900">
+                      {/* ─── EASYPAISA & CUSTOMER ORDERS VERIFICATION (3D GRAY CARD CONTAINER) ─── */}
+                      <div className="bg-gradient-to-b from-white via-slate-50 to-slate-100/90 border border-zinc-200/90 rounded-3xl p-6 shadow-[0_12px_35px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.9)] hover:shadow-[0_18px_45px_rgba(0,0,0,0.12)] transition-all duration-300 text-zinc-900">
                         <OrdersManagement shopId={shopId} />
                       </div>
 
@@ -6674,6 +6698,20 @@ function StoreContent({ shopId }) {
                       </div>
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* ─── CUSTOMER CREDIT & KHATA VIEW FOR SHOP ADMIN ─── */}
+              {activeView === 'customer-credit' && isAdminUser && (
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <CustomerCreditManagement shopId={shopId} />
+                </div>
+              )}
+
+              {/* ─── PURCHASE CREDIT & SUPPLIER KHATA VIEW FOR SHOP ADMIN ─── */}
+              {activeView === 'purchase-credit' && isAdminUser && (
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <PurchaseCreditManagement shopId={shopId} />
                 </div>
               )}
 

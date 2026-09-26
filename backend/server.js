@@ -24,6 +24,10 @@ import customersRoutes from './routes/customers.js';
 import checkoutRoutes from './routes/checkout.js';
 import expensesRoutes from './routes/expenses.js';
 import damagedProductsRoutes from './routes/damagedProducts.js';
+import easypaisaOrdersRoutes from './routes/easypaisaOrders.js';
+import purchasesRoutes from './routes/purchases.js';
+import customerCreditsRoutes from './routes/customerCredits.js';
+import purchaseCreditsRoutes from './routes/purchaseCredits.js';
 
 dotenv.config();
 
@@ -83,6 +87,10 @@ app.use('/api/customers', customersRoutes);
 app.use('/api/checkout', checkoutRoutes);
 app.use('/api/expenses', expensesRoutes);
 app.use('/api/damaged-products', damagedProductsRoutes);
+app.use('/api/easypaisa-orders', easypaisaOrdersRoutes);
+app.use('/api/purchases', purchasesRoutes);
+app.use('/api/customer-credits', customerCreditsRoutes);
+app.use('/api/purchase-credits', purchaseCreditsRoutes);
 
 // Root route
 app.get('/', (req, res) => {

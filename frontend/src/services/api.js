@@ -283,5 +283,66 @@ export const deleteOrderProof = async (orderId) => {
   return response.data;
 };
 
+// --- CUSTOMER CREDITS API ---
+export const getCustomerCredits = async (shopId = 1, params = {}) => {
+  const response = await api.get(`/customer-credits/shop/${shopId}`, { params });
+  return response.data;
+};
+
+export const getCustomerCreditById = async (id) => {
+  const response = await api.get(`/customer-credits/${id}`);
+  return response.data;
+};
+
+export const createCustomerCredit = async (creditData) => {
+  const response = await api.post('/customer-credits', creditData);
+  return response.data;
+};
+
+export const recordCustomerCreditPayment = async (id, paymentData) => {
+  const response = await api.post(`/customer-credits/${id}/payment`, paymentData);
+  return response.data;
+};
+
+export const syncCustomerCredits = async (shopId = 1) => {
+  const response = await api.post(`/customer-credits/sync/${shopId}`);
+  return response.data;
+};
+
+export const deleteCustomerCredit = async (id) => {
+  const response = await api.delete(`/customer-credits/${id}`);
+  return response.data;
+};
+
+// --- PURCHASE CREDITS API ---
+export const getPurchaseCredits = async (shopId = 1, params = {}) => {
+  const response = await api.get(`/purchase-credits/shop/${shopId}`, { params });
+  return response.data;
+};
+
+export const getPurchaseCreditById = async (id) => {
+  const response = await api.get(`/purchase-credits/${id}`);
+  return response.data;
+};
+
+export const createPurchaseCredit = async (creditData) => {
+  const response = await api.post('/purchase-credits', creditData);
+  return response.data;
+};
+
+export const recordPurchaseCreditPayment = async (id, paymentData) => {
+  const response = await api.post(`/purchase-credits/${id}/payment`, paymentData);
+  return response.data;
+};
+
+export const syncPurchaseCredits = async (shopId = 1) => {
+  const response = await api.post(`/purchase-credits/sync/${shopId}`);
+  return response.data;
+};
+
+export const deletePurchaseCredit = async (id) => {
+  const response = await api.delete(`/purchase-credits/${id}`);
+  return response.data;
+};
 
 export default api;

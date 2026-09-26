@@ -261,6 +261,160 @@ export async function initMySQLTables(forceRecreate = false) {
     ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
   `);
 
+  // 11. EasyPaisa Orders Table (dedicated for EasyPaisa/JazzCash payments)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS easypaisa_orders (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      shopId INT DEFAULT 1,
+      customerId INT DEFAULT NULL,
+      customerName VARCHAR(255) DEFAULT '',
+      customerPhone VARCHAR(50) DEFAULT '',
+      customerEmail VARCHAR(255) DEFAULT '',
+      items JSON,
+      totalAmount DECIMAL(14,2) NOT NULL DEFAULT 0,
+      shippingDetails JSON,
+      paymentMethod VARCHAR(50) NOT NULL DEFAULT 'EASYPAISA',
+      paymentStatus ENUM('PENDING','PAID','REJECTED','FAILED') DEFAULT 'PENDING',
+      orderStatus ENUM('PROCESSING','CONFIRMED','SHIPPED','DELIVERED','CANCELLED') DEFAULT 'PROCESSING',
+      transactionId VARCHAR(255) DEFAULT '',
+      senderNumber VARCHAR(50) DEFAULT '',
+      paymentProof TEXT,
+      notes TEXT,
+      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      KEY idx_easypaisa_shopId (shopId),
+      KEY idx_easypaisa_status (paymentStatus)
+    ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  `);
+
+  // 12. Purchases Table (dedicated for supplier purchases & restocks)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS purchases (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      shopId INT DEFAULT 1,
+      productName VARCHAR(255) NOT NULL,
+      productId INT DEFAULT NULL,
+      category VARCHAR(255) DEFAULT '',
+      supplierName VARCHAR(255) DEFAULT '',
+      supplierPhone VARCHAR(50) DEFAULT '',
+      supplierAddress TEXT,
+      quantity INT DEFAULT 0,
+      unitType VARCHAR(50) DEFAULT 'unit',
+      petiQuantity DECIMAL(10,2) DEFAULT 0,
+      trayQuantity DECIMAL(10,2) DEFAULT 0,
+      eggQuantity INT DEFAULT 0,
+      unitPrice DECIMAL(12,2) DEFAULT 0,
+      totalCost DECIMAL(14,2) DEFAULT 0,
+      amountPaid DECIMAL(14,2) DEFAULT 0,
+      cashPaid DECIMAL(14,2) DEFAULT 0,
+      bankPaid DECIMAL(14,2) DEFAULT 0,
+      dueAmount DECIMAL(14,2) DEFAULT 0,
+      paymentMethod VARCHAR(50) DEFAULT 'CASH',
+      paymentStatus ENUM('PAID','PARTIAL','PENDING') DEFAULT 'PAID',
+      invoiceNumber VARCHAR(100) DEFAULT '',
+      purchaseDate DATETIME DEFAULT CURRENT_TIMESTAMP,
+      restockType ENUM('NEW_STOCK','RESTOCK','RETURN') DEFAULT 'NEW_STOCK',
+      notes TEXT,
+      createdBy VARCHAR(255) DEFAULT 'Shop Admin',
+      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      KEY idx_purchases_shopId (shopId),
+      KEY idx_purchases_date (purchaseDate),
+      KEY idx_purchases_product (productId)
+    ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  `);
+
+  // 13. Customer Credits & Customer Credit Payments Tables
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS customer_credits (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      shopId INT DEFAULT 1,
+      customerId INT DEFAULT NULL,
+      customerName VARCHAR(255) NOT NULL,
+      customerPhone VARCHAR(50) DEFAULT '',
+      customerAddress TEXT DEFAULT NULL,
+      saleId INT DEFAULT NULL,
+      invoiceNumber VARCHAR(100) DEFAULT '',
+      totalCredit DECIMAL(14,2) NOT NULL DEFAULT 0.00,
+      amountPaid DECIMAL(14,2) NOT NULL DEFAULT 0.00,
+      dueBalance DECIMAL(14,2) NOT NULL DEFAULT 0.00,
+      dueDate DATE DEFAULT NULL,
+      creditDate DATETIME DEFAULT CURRENT_TIMESTAMP,
+      status ENUM('PENDING', 'PARTIAL', 'PAID') DEFAULT 'PENDING',
+      notes TEXT DEFAULT NULL,
+      createdBy VARCHAR(255) DEFAULT 'Shop Admin',
+      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_customer_credits_shop (shopId),
+      INDEX idx_customer_credits_status (status),
+      INDEX idx_customer_credits_name (customerName)
+    ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS customer_credit_payments (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      creditId INT NOT NULL,
+      shopId INT DEFAULT 1,
+      customerName VARCHAR(255) DEFAULT '',
+      amountPaid DECIMAL(14,2) NOT NULL,
+      paymentMethod VARCHAR(50) DEFAULT 'CASH',
+      receiptNumber VARCHAR(100) DEFAULT '',
+      transactionId VARCHAR(255) DEFAULT '',
+      paymentDate DATETIME DEFAULT CURRENT_TIMESTAMP,
+      receivedBy VARCHAR(255) DEFAULT 'Shop Admin',
+      notes TEXT DEFAULT NULL,
+      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_cc_payments_credit (creditId),
+      INDEX idx_cc_payments_shop (shopId)
+    ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  `);
+
+  // 14. Purchase Credits & Purchase Credit Payments Tables
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS purchase_credits (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      shopId INT DEFAULT 1,
+      purchaseId INT DEFAULT NULL,
+      supplierName VARCHAR(255) NOT NULL,
+      supplierPhone VARCHAR(50) DEFAULT '',
+      supplierAddress TEXT DEFAULT NULL,
+      billNumber VARCHAR(100) DEFAULT '',
+      totalAmount DECIMAL(14,2) NOT NULL DEFAULT 0.00,
+      amountPaid DECIMAL(14,2) NOT NULL DEFAULT 0.00,
+      dueBalance DECIMAL(14,2) NOT NULL DEFAULT 0.00,
+      dueDate DATE DEFAULT NULL,
+      creditDate DATETIME DEFAULT CURRENT_TIMESTAMP,
+      status ENUM('PENDING', 'PARTIAL', 'PAID') DEFAULT 'PENDING',
+      notes TEXT DEFAULT NULL,
+      createdBy VARCHAR(255) DEFAULT 'Shop Admin',
+      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_purchase_credits_shop (shopId),
+      INDEX idx_purchase_credits_status (status),
+      INDEX idx_purchase_credits_supplier (supplierName)
+    ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS purchase_credit_payments (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      creditId INT NOT NULL,
+      shopId INT DEFAULT 1,
+      supplierName VARCHAR(255) DEFAULT '',
+      amountPaid DECIMAL(14,2) NOT NULL,
+      paymentMethod VARCHAR(50) DEFAULT 'CASH',
+      receiptNumber VARCHAR(100) DEFAULT '',
+      transactionId VARCHAR(255) DEFAULT '',
+      paymentDate DATETIME DEFAULT CURRENT_TIMESTAMP,
+      paidBy VARCHAR(255) DEFAULT 'Shop Admin',
+      notes TEXT DEFAULT NULL,
+      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_pc_payments_credit (creditId),
+      INDEX idx_pc_payments_shop (shopId)
+    ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  `);
+
   // Seed Default Super Admin and Default Shop if not present
   try {
     const [superAdmins] = await pool.query(`SELECT id FROM users WHERE role = 'super_admin' LIMIT 1`);

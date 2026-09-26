@@ -13,6 +13,8 @@ import { ProductDetail } from "./pages/ProductDetail";
 import { CartModal } from "./components/CartModal";
 import { ProductModal } from "./components/ProductModal";
 import { PurchasesManagement } from "./components/PurchasesManagement";
+import { CustomerCreditManagement } from "./components/CustomerCreditManagement";
+import { PurchaseCreditManagement } from "./components/PurchaseCreditManagement";
 import { ReceiptModal } from "./components/ReceiptModal";
 import { EditSaleModal } from "./components/EditSaleModal";
 import { ExportModal } from "./components/ExportModal";
@@ -346,6 +348,8 @@ export default function App() {
                 <Route path="/help" element={<HelpView />} />
                 <Route path="/team" element={(isShopAdmin() || isSuperAdmin()) ? <TeamView /> : <Navigate to="/" />} />
                 <Route path="/purchases" element={isShopAdmin() ? <PurchasesManagement onAddProduct={() => openModal("addProduct")} onEditProduct={(p) => openModal("editProduct", p)} /> : <Navigate to="/" />} />
+                <Route path="/customer-credit" element={(isShopAdmin() || isSuperAdmin()) ? <CustomerCreditManagement shopId={user?.shopId || 1} /> : <Navigate to="/" />} />
+                <Route path="/purchase-credit" element={(isShopAdmin() || isSuperAdmin()) ? <PurchaseCreditManagement shopId={user?.shopId || 1} /> : <Navigate to="/" />} />
                 <Route path="/shops" element={isSuperAdmin() ? <Navigate to="/" replace /> : <Navigate to="/" replace />} />
               </Routes>
             </div>
