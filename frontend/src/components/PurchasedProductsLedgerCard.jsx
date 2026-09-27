@@ -140,14 +140,14 @@ export function PurchasedProductsLedgerCard({ products = [], onAddProduct, onEdi
 
       {/* Summary KPI 4 Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-4 bg-zinc-900 text-white rounded-2xl border border-zinc-800 flex flex-col justify-between">
-          <span className="text-[9px] font-black text-amber-400 uppercase tracking-widest block mb-1">
+        <div className="p-4 bg-slate-50 text-slate-900 rounded-2xl border border-slate-200 flex flex-col justify-between">
+          <span className="text-[9px] font-black text-amber-700 uppercase tracking-widest block mb-1">
             Total Purchased
           </span>
           <h4 className="text-xl sm:text-2xl font-black tracking-tight">
             Rs. <CountUpNumber value={stats.grandPurchaseCost} />
           </h4>
-          <span className="text-[9px] text-zinc-400 font-bold uppercase mt-1 block">Total Investment</span>
+          <span className="text-[9px] text-slate-500 font-bold uppercase mt-1 block">Total Investment</span>
         </div>
 
         <div className="p-4 bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl flex flex-col justify-between">
@@ -193,7 +193,7 @@ export function PurchasedProductsLedgerCard({ products = [], onAddProduct, onEdi
       <div className="overflow-x-auto rounded-2xl border border-zinc-200 bg-white">
         <table className="w-full text-left text-xs border-collapse">
           <thead>
-            <tr className="bg-zinc-900 text-white uppercase text-[10px] tracking-wider font-black">
+            <tr className="bg-slate-50 text-slate-700 border-b border-slate-200 uppercase text-[10px] tracking-wider font-black">
               <th className="py-3 px-4">Product Name</th>
               <th className="py-3 px-4">Purchased Stock</th>
               <th className="py-3 px-4">Cost Price (Rs)</th>

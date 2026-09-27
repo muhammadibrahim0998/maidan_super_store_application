@@ -199,7 +199,9 @@ export class MySQLQueryBuilder {
     return this;
   }
 
-  populate() {
+  populate(path, select) {
+    if (!this._populates) this._populates = [];
+    this._populates.push({ path, select });
     return this;
   }
 
@@ -227,18 +229,44 @@ export class MySQLQueryBuilder {
 
     const [rows] = await pool.query(sql, params);
 
-    if (this.single) {
-      if (!rows || rows.length === 0) return null;
-      const doc = this.model.hydrate(rows[0]);
-      return this._isLean ? doc.toObject() : doc;
+    const targetDocs = this.single 
+      ? (rows && rows.length > 0 ? [this.model.hydrate(rows[0])] : []) 
+      : (rows || []).map(r => this.model.hydrate(r));
+
+    if (this._populates && this._populates.length > 0 && targetDocs.length > 0) {
+      for (const pop of this._populates) {
+        const field = pop.path;
+        let targetTable = null;
+        if (field === 'shopId') targetTable = 'shops';
+        else if (field === 'customerId') targetTable = 'customers';
+        else if (field === 'userId' || field === 'cashierId') targetTable = 'users';
+
+        if (targetTable) {
+          const ids = [...new Set(targetDocs.map(d => d[field]).filter(v => v !== null && v !== undefined && v !== ''))];
+          if (ids.length > 0) {
+            try {
+              const placeholders = ids.map(() => '?').join(', ');
+              const [relRows] = await pool.query(`SELECT * FROM \`${targetTable}\` WHERE id IN (${placeholders})`, ids);
+              const map = new Map(relRows.map(r => [String(r.id), { ...r, _id: String(r.id) }]));
+              for (const doc of targetDocs) {
+                if (doc[field] && map.has(String(doc[field]))) {
+                  doc[field] = map.get(String(doc[field]));
+                }
+              }
+            } catch (popErr) {
+              // Gracefully continue without breaking query
+            }
+          }
+        }
+      }
     }
 
-    const docs = rows.map(r => {
-      const doc = this.model.hydrate(r);
-      return this._isLean ? doc.toObject() : doc;
-    });
+    if (this.single) {
+      if (targetDocs.length === 0) return null;
+      return this._isLean ? targetDocs[0].toObject() : targetDocs[0];
+    }
 
-    return docs;
+    return targetDocs.map(d => this._isLean ? d.toObject() : d);
   }
 
   then(resolve, reject) {
@@ -354,6 +382,17 @@ export class BaseMySQLModel {
     }
 
     return this;
+  }
+
+  async deleteOne() {
+    if (this.id) {
+      await pool.query(`DELETE FROM \`${this.constructor.tableName}\` WHERE id = ?`, [this.id]);
+    }
+    return { deletedCount: 1, acknowledged: true };
+  }
+
+  async remove() {
+    return this.deleteOne();
   }
 
   static find(filter = {}) {

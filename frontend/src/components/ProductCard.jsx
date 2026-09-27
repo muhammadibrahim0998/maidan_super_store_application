@@ -39,16 +39,16 @@ export function ProductCard({ product, onEdit, onDelete, onView }) {
       whileHover={{ y: -4, scale: 1.02 }}
       transition={{ duration: 0.2 }}
       onClick={handleView}
-      className={`group w-full bg-[#1E293B] border rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 flex flex-col cursor-pointer select-none ${
+      className={`group w-full bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col cursor-pointer select-none text-slate-900 ${
         isOutOfStock 
           ? 'border-red-500/40 opacity-80' 
           : isLowStock 
           ? 'border-amber-500/60 shadow-amber-500/10' 
-          : 'border-slate-700/60 hover:border-emerald-500/50'
+          : 'hover:border-emerald-500/50'
       }`}
     >
       {/* Aspect Square Image Container */}
-      <div className="relative aspect-square w-full bg-slate-900 overflow-hidden">
+      <div className="relative aspect-square w-full bg-slate-100 overflow-hidden">
         {product.images?.[0] ? (
           <img
             src={product.images[0]}
@@ -62,7 +62,7 @@ export function ProductCard({ product, onEdit, onDelete, onView }) {
         )}
 
         {/* Category Badge - Top Left */}
-        <div className="absolute top-3 left-3 bg-[#111827]/90 px-3 py-1 rounded-full text-[9px] font-black text-emerald-400 uppercase tracking-widest border border-slate-700/80 backdrop-blur-md">
+        <div className="absolute top-3 left-3 bg-white px-3 py-1 rounded-full text-[9px] font-black text-emerald-700 uppercase tracking-widest border border-slate-200 shadow-xs">
           {product.category || 'Perfume'}
         </div>
 
@@ -87,7 +87,7 @@ export function ProductCard({ product, onEdit, onDelete, onView }) {
       {/* Item Info & Actions */}
       <div className="p-4 flex flex-col flex-1 justify-between gap-3">
         <div className="space-y-2 text-left">
-          <h3 className="font-black text-white text-sm leading-snug line-clamp-1 uppercase tracking-tight group-hover:text-emerald-300 transition-colors">
+          <h3 className="font-black text-slate-900 text-sm leading-snug line-clamp-1 uppercase tracking-tight group-hover:text-emerald-700 transition-colors">
             {product.name}
           </h3>
           
@@ -100,18 +100,18 @@ export function ProductCard({ product, onEdit, onDelete, onView }) {
             const singleRate = product.pricePerEgg || (unit === 'piece' || unit === 'bottle' || unit === 'egg' ? price : price);
 
             return (
-              <div className="grid grid-cols-3 gap-1 p-2 bg-slate-900/90 rounded-xl border border-slate-700/80 text-[10px] font-black">
-                <div className="text-center border-r border-slate-700/60 pr-1">
+              <div className="grid grid-cols-3 gap-1 p-2 bg-slate-50 rounded-xl border border-slate-200 text-[10px] font-black">
+                <div className="text-center border-r border-slate-200 pr-1">
                   <span className="text-[7px] text-amber-400 font-bold uppercase block">Box / Carton</span>
-                  <span className="text-white text-[11px]">Rs.{Math.round(boxRate).toLocaleString()}</span>
+                  <span className="text-slate-900 text-[11px]">Rs.{Math.round(boxRate).toLocaleString()}</span>
                 </div>
-                <div className="text-center border-r border-slate-700/60 px-1">
+                <div className="text-center border-r border-slate-200 px-1">
                   <span className="text-[7px] text-teal-400 font-bold uppercase block">Pack / Set</span>
-                  <span className="text-white text-[11px]">Rs.{Math.round(packRate).toLocaleString()}</span>
+                  <span className="text-slate-900 text-[11px]">Rs.{Math.round(packRate).toLocaleString()}</span>
                 </div>
                 <div className="text-center pl-1">
                   <span className="text-[7px] text-emerald-400 font-bold uppercase block">Single Unit</span>
-                  <span className="text-white text-[11px]">Rs.{singleRate < 100 ? singleRate.toFixed(1) : Math.round(singleRate)}</span>
+                  <span className="text-slate-900 text-[11px]">Rs.{singleRate < 100 ? singleRate.toFixed(1) : Math.round(singleRate)}</span>
                 </div>
               </div>
             );
@@ -152,7 +152,7 @@ export function ProductCard({ product, onEdit, onDelete, onView }) {
           <div className="grid grid-cols-3 gap-1.5 w-full">
             <button
               onClick={handleView}
-              className="py-1.5 px-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-black text-[9px] uppercase tracking-wider flex items-center justify-center gap-1 border border-slate-600/60 shadow-md active:translate-y-[1px] transition-all cursor-pointer"
+              className="py-1.5 px-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-black text-[9px] uppercase tracking-wider flex items-center justify-center gap-1 border border-slate-200 shadow-md active:translate-y-[1px] transition-all cursor-pointer"
               title="View Details"
             >
               <Eye className="w-3 h-3 text-emerald-400" />

@@ -64,7 +64,7 @@ export function ProductHeroSlider({
     <div 
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
-      className="relative bg-gradient-to-br from-[#070e14] via-[#0c1822] to-[#04090e] border-2 border-emerald-500/30 hover:border-emerald-400/60 rounded-[2.25rem] sm:rounded-[2.75rem] p-4 sm:p-7 shadow-[0_30px_70px_-15px_rgba(0,0,0,0.95),0_0_40px_rgba(16,185,129,0.18),inset_0_1px_2px_rgba(255,255,255,0.15)] text-white overflow-hidden transition-all duration-500 mb-2"
+      className="relative bg-white border-2 border-slate-200 hover:border-emerald-400/60 rounded-[2.25rem] sm:rounded-[2.75rem] p-4 sm:p-7 shadow-lg text-slate-900 overflow-hidden transition-all duration-500 mb-2"
     >
       {/* Top 2-Second Animated Neon Progress Bar Line */}
       {!isPaused && (
@@ -85,7 +85,7 @@ export function ProductHeroSlider({
       <div className="absolute top-1/2 left-1/3 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
 
       {/* Top Slider Header with 3D Badges & Controls */}
-      <div className="relative z-10 flex flex-wrap items-center justify-between gap-3 mb-5 pb-3.5 border-b border-slate-800/80">
+      <div className="relative z-10 flex flex-wrap items-center justify-between gap-3 mb-5 pb-3.5 border-b border-slate-200">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-500/30 to-teal-900/40 border border-emerald-500/50 flex items-center justify-center text-emerald-400 shadow-[0_4px_12px_rgba(16,185,129,0.3),inset_0_1px_1px_rgba(255,255,255,0.3)] shrink-0">
             <Sparkles className="w-5 h-5 animate-spin-slow" />
@@ -100,7 +100,7 @@ export function ProductHeroSlider({
                 2s Live Shift
               </span>
             </div>
-            <p className="text-xs font-semibold text-slate-300 mt-0.5">
+            <p className="text-xs font-semibold text-slate-500 mt-0.5">
               Automated 3D carousel • All <span className="text-amber-300 font-bold">{products.length} Products</span> in store
             </p>
           </div>
@@ -108,13 +108,13 @@ export function ProductHeroSlider({
 
         {/* 3D Tactile Slider Controls */}
         <div className="flex items-center gap-2">
-          <span className="text-xs font-black px-3.5 py-1.5 rounded-xl bg-slate-900/90 text-amber-300 border border-amber-500/30 shadow-[0_4px_12px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.15)]">
+          <span className="text-xs font-black px-3.5 py-1.5 rounded-xl bg-slate-100 text-amber-700 border border-slate-300 shadow-sm">
             {currentSlide + 1} / {products.length}
           </span>
           <button
             type="button"
             onClick={prevSlide}
-            className="p-2.5 rounded-xl bg-gradient-to-b from-slate-800 to-slate-900 hover:from-slate-700 hover:to-slate-800 text-slate-200 hover:text-white border border-slate-700/80 transition-all cursor-pointer active:scale-90 shadow-[0_4px_10px_rgba(0,0,0,0.4),inset_0_1px_1px_rgba(255,255,255,0.2)]"
+            className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 border border-slate-300 transition-all cursor-pointer active:scale-90 shadow-[0_4px_10px_rgba(0,0,0,0.4),inset_0_1px_1px_rgba(255,255,255,0.2)]"
             title="Previous Product"
           >
             <ChevronLeft className="w-4 h-4" />
@@ -208,17 +208,17 @@ export function ProductHeroSlider({
               <span>Exclusive Formula</span>
             </div>
 
-            <h3 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white uppercase tracking-tight line-clamp-1 drop-shadow-md" title={activeProduct.name}>
+            <h3 className="text-2xl sm:text-3xl lg:text-4xl font-black text-slate-900 uppercase tracking-tight line-clamp-1" title={activeProduct.name}>
               {(activeProduct.name || 'Perfume Product').replace(/\(Egg\)/gi, '').replace(/\bEgg\b/gi, 'Product')}
             </h3>
 
-            <p className="text-xs sm:text-sm text-slate-300/90 font-medium leading-relaxed line-clamp-2">
+            <p className="text-xs sm:text-sm text-slate-600 font-medium leading-relaxed line-clamp-2">
               {activeProduct.description || 'Premium long-lasting luxury fragrance, crafted with natural oils and exceptional scent notes for all occasions.'}
             </p>
           </div>
 
           {/* 3D Glassmorphic Price & Action Panel */}
-          <div className="bg-gradient-to-r from-slate-950/90 via-[#0a141d]/90 to-slate-950/90 border border-emerald-500/30 rounded-2xl sm:rounded-3xl p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4 shadow-[0_15px_35px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(255,255,255,0.15)]">
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl sm:rounded-3xl p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4 shadow-sm">
             <div>
               <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-0.5">
                 Catalog Price
@@ -254,7 +254,7 @@ export function ProductHeroSlider({
           </div>
 
           {/* 3D Slider Dots Navigation Bar */}
-          <div className="p-2 bg-slate-950/80 rounded-2xl border border-slate-800/90 shadow-inner flex items-center gap-1.5 overflow-x-auto scrollbar-hide">
+          <div className="p-2 bg-slate-100 rounded-2xl border border-slate-200 flex items-center gap-1.5 overflow-x-auto scrollbar-hide">
             {products.map((p, i) => (
               <button
                 key={p._id || i}

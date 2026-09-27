@@ -153,14 +153,14 @@ export function SupplierPurchaseSummaryCard({ products = [] }) {
         </div>
 
         {/* Total Purchase Investment */}
-        <div className="p-5 bg-zinc-900 text-white rounded-2xl border border-zinc-800 shadow-md flex flex-col justify-between">
-          <span className="text-[9px] font-black text-amber-400 uppercase tracking-widest block mb-1">
+        <div className="p-5 bg-slate-50 text-slate-900 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+          <span className="text-[9px] font-black text-amber-700 uppercase tracking-widest block mb-1">
             Total Purchase Cost
           </span>
-          <h4 className="text-2xl font-black text-white tracking-tight">
+          <h4 className="text-2xl font-black text-slate-900 tracking-tight">
             Rs. <CountUpNumber value={stats.totalPurchasesCost} />
           </h4>
-          <span className="text-[9px] text-zinc-400 font-bold uppercase mt-1 block">
+          <span className="text-[9px] text-slate-500 font-bold uppercase mt-1 block">
             Total Inventory Purchase Value
           </span>
         </div>
@@ -173,7 +173,7 @@ export function SupplierPurchaseSummaryCard({ products = [] }) {
             </span>
             <Banknote className="w-4 h-4 text-white" />
           </div>
-          <h4 className="text-2xl font-black text-white tracking-tight">
+          <h4 className="text-2xl font-black text-slate-900 tracking-tight">
             Rs. <CountUpNumber value={stats.cashPaid} />
           </h4>
           <span className="text-[10px] text-emerald-100 font-bold uppercase mt-1 block">

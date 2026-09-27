@@ -906,17 +906,17 @@ export function PurchasesManagement({ products: propProducts, onAddProduct, onEd
     <div className="space-y-6 animate-in fade-in duration-500">
       
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-teal-950 p-6 sm:p-7 rounded-[2rem] border border-slate-700/80 shadow-2xl text-white flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+      <div className="bg-white p-5 sm:p-7 rounded-3xl border border-slate-200 shadow-sm flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 text-slate-900">
         <div className="space-y-1">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-teal-500/20 border border-teal-500/40 rounded-2xl text-teal-400">
-              <Truck className="w-5 h-5" />
+            <div className="p-2.5 bg-slate-100 border border-slate-200 rounded-2xl text-slate-800">
+              <Truck className="w-5 h-5 text-teal-600" />
             </div>
             <div>
-              <h2 className="text-xl sm:text-2xl font-black tracking-tight uppercase italic">
+              <h2 className="text-xl sm:text-2xl font-black tracking-tight uppercase text-slate-900">
                 Purchases Page
               </h2>
-              <p className="text-slate-400 text-[11px] font-bold uppercase tracking-wider">
+              <p className="text-slate-500 text-[11px] font-bold uppercase tracking-wider">
                 Full Stock Purchase Records • Day, Month &amp; Year Cost History
               </p>
             </div>
@@ -927,16 +927,16 @@ export function PurchasesManagement({ products: propProducts, onAddProduct, onEd
           {/* Quick Actions: Print PDF, WhatsApp Share, Excel Export */}
           <button
             onClick={handlePrintPurchasesReport}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-black uppercase tracking-wider border border-slate-600 transition-all cursor-pointer shadow-sm hover:border-teal-400"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-black uppercase tracking-wider border border-slate-200 transition-all cursor-pointer shadow-sm hover:border-teal-500"
             title="Print PDF Purchases Report"
           >
-            <Printer className="w-3.5 h-3.5 text-teal-400" />
+            <Printer className="w-3.5 h-3.5 text-teal-600" />
             <span>Print PDF</span>
           </button>
 
           <button
             onClick={handleWhatsAppPurchasesShare}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-black uppercase tracking-wider border border-emerald-500 transition-all cursor-pointer shadow-sm"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black uppercase tracking-wider border border-emerald-600 transition-all cursor-pointer shadow-sm"
             title="Share via WhatsApp"
           >
             <Share2 className="w-3.5 h-3.5 text-white" />
@@ -945,25 +945,25 @@ export function PurchasesManagement({ products: propProducts, onAddProduct, onEd
 
           <button
             onClick={handleExportPurchasesExcel}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-800 hover:bg-emerald-700 text-white text-xs font-black uppercase tracking-wider border border-emerald-600 transition-all cursor-pointer shadow-sm"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-teal-700 hover:bg-teal-800 text-white text-xs font-black uppercase tracking-wider border border-teal-700 transition-all cursor-pointer shadow-sm"
             title="Export Styled Excel (.xls) Report"
           >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-300" />
+            <FileSpreadsheet className="w-3.5 h-3.5 text-white" />
             <span>Excel</span>
           </button>
 
           {onAddProduct && (
             <button
               onClick={onAddProduct}
-              className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-xs font-black uppercase tracking-wider transition-all shadow-md active:translate-y-0.5 cursor-pointer font-extrabold"
+              className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-black uppercase tracking-wider transition-all shadow-sm active:translate-y-0.5 cursor-pointer font-extrabold"
             >
-              <Plus className="w-4 h-4 text-slate-950 stroke-[3]" />
+              <Plus className="w-4 h-4 text-white stroke-[3]" />
               <span>+ Add Product</span>
             </button>
           )}
 
           {/* Day / Month / Year Timeframe Selector */}
-          <div className="flex items-center gap-1 bg-slate-800/90 p-1 rounded-xl border border-slate-700">
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
             {[
               { id: 'ALL', label: 'All-Time' },
               { id: 'DAY', label: 'Today (Day)' },
@@ -975,8 +975,8 @@ export function PurchasesManagement({ products: propProducts, onAddProduct, onEd
                 onClick={() => setTimeframe(t.id)}
                 className={`px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
                   timeframe === t.id
-                    ? 'bg-teal-500 text-slate-950 shadow-md font-extrabold'
-                    : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
+                    ? 'bg-slate-900 text-white shadow-sm font-extrabold'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
                 }`}
               >
                 {t.label}
@@ -1089,7 +1089,7 @@ export function PurchasesManagement({ products: propProducts, onAddProduct, onEd
 
 
       {/* Search Control */}
-      <div className="bg-white p-3.5 rounded-2xl border border-zinc-100 shadow-sm flex items-center gap-2">
+      <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-2">
         <div className="flex items-center gap-2 bg-zinc-100 px-3.5 py-2 rounded-xl w-full">
           <Search className="w-4 h-4 text-zinc-400 shrink-0" />
           <input
@@ -1493,26 +1493,26 @@ export function PurchasesManagement({ products: propProducts, onAddProduct, onEd
 
           {reportMenuOpen && (
             <div
-              className="absolute right-0 bottom-full mb-2 w-64 bg-slate-900 border border-slate-700 text-white rounded-2xl p-2 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150"
+              className="absolute right-0 bottom-full mb-2 w-64 bg-white border border-slate-200 text-slate-900 rounded-2xl p-2 shadow-xl z-50 animate-in fade-in zoom-in-95 duration-150"
               onMouseLeave={() => setReportMenuOpen(false)}
             >
               <button
                 onClick={() => { handlePrintPurchasesReport(); setReportMenuOpen(false); }}
-                className="w-full px-3.5 py-2.5 rounded-xl text-xs font-black text-left flex items-center gap-2 hover:bg-white/10 text-emerald-300 transition-all cursor-pointer"
+                className="w-full px-3.5 py-2.5 rounded-xl text-xs font-black text-left flex items-center gap-2 hover:bg-slate-50 text-emerald-700 transition-all cursor-pointer"
               >
                 <Truck className="w-4 h-4 text-emerald-400" /> Print Purchases Report
               </button>
 
               <button
                 onClick={() => { handleWhatsAppPurchasesShare(); setReportMenuOpen(false); }}
-                className="w-full px-3.5 py-2.5 rounded-xl text-xs font-black text-left flex items-center gap-2 hover:bg-white/10 text-teal-300 transition-all cursor-pointer"
+                className="w-full px-3.5 py-2.5 rounded-xl text-xs font-black text-left flex items-center gap-2 hover:bg-slate-50 text-teal-700 transition-all cursor-pointer"
               >
                 <Truck className="w-4 h-4 text-teal-400" /> WhatsApp PDF Report
               </button>
 
               <button
                 onClick={() => { handleExportPurchasesExcel(); setReportMenuOpen(false); }}
-                className="w-full px-3.5 py-2.5 rounded-xl text-xs font-black text-left flex items-center gap-2 hover:bg-white/10 text-green-300 transition-all cursor-pointer"
+                className="w-full px-3.5 py-2.5 rounded-xl text-xs font-black text-left flex items-center gap-2 hover:bg-slate-50 text-green-700 transition-all cursor-pointer"
               >
                 <FileSpreadsheet className="w-4 h-4 text-green-400" /> Export Excel (.csv)
               </button>
@@ -1760,8 +1760,8 @@ export function PurchasesManagement({ products: propProducts, onAddProduct, onEd
       <AnimatePresence>
         {selectedReceipt && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
-            <div className="relative max-w-lg w-full bg-zinc-900 border border-zinc-700 rounded-3xl p-4 text-white shadow-2xl space-y-3">
-              <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
+            <div className="relative max-w-lg w-full bg-white border border-slate-200 rounded-3xl p-4 text-slate-900 shadow-2xl space-y-3">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-2">
                 <span className="text-xs font-black uppercase text-teal-400 flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4" /> Supplier Payment Screenshot / Receipt
                 </span>
@@ -1773,7 +1773,7 @@ export function PurchasesManagement({ products: propProducts, onAddProduct, onEd
                 </button>
               </div>
 
-              <div className="max-h-[70vh] overflow-hidden rounded-2xl border border-zinc-800 bg-black flex items-center justify-center">
+              <div className="max-h-[70vh] overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 flex items-center justify-center">
                 <img src={selectedReceipt} alt="Supplier Receipt" className="w-full h-full object-contain max-h-[65vh]" />
               </div>
 
@@ -1788,7 +1788,7 @@ export function PurchasesManagement({ products: propProducts, onAddProduct, onEd
                 </a>
                 <button
                   onClick={() => setSelectedReceipt(null)}
-                  className="px-4 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl text-xs font-black uppercase"
+                  className="px-4 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 rounded-xl text-xs font-black uppercase"
                 >
                   Close
                 </button>
@@ -1806,19 +1806,19 @@ export function PurchasesManagement({ products: propProducts, onAddProduct, onEd
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="relative max-w-md w-full bg-slate-900 border border-slate-700 rounded-3xl p-6 text-white shadow-2xl space-y-4"
+              className="relative max-w-md w-full bg-white border border-slate-200 rounded-3xl p-6 text-slate-900 shadow-2xl space-y-4"
             >
               {/* Header */}
-              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-3">
                 <div className="flex items-center gap-2.5">
                   <div className="p-2 bg-rose-500/20 text-rose-400 rounded-xl">
                     <CreditCard className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="text-base font-black uppercase tracking-tight text-white">
+                    <h3 className="text-base font-black uppercase tracking-tight text-slate-900">
                       Pay Supplier Credit
                     </h3>
-                    <p className="text-[11px] font-bold text-slate-400 uppercase">
+                    <p className="text-[11px] font-bold text-slate-500 uppercase">
                       {settleModal.item?.name} • <span className="text-teal-400">{settleModal.item?.supplierName || 'Supplier'}</span>
                     </p>
                   </div>
@@ -1864,7 +1864,7 @@ export function PurchasesManagement({ products: propProducts, onAddProduct, onEd
               <form onSubmit={handleConfirmSettle} className="space-y-4">
                 {/* Payment Method Selector (Cash vs Bank Transfer) */}
                 <div className="space-y-1.5">
-                  <label className="text-[11px] font-black uppercase tracking-wider text-slate-300 block">
+                  <label className="text-[11px] font-black uppercase tracking-wider text-slate-700 block">
                     Select Payment Method
                   </label>
                   <div className="grid grid-cols-2 gap-2">
@@ -1874,7 +1874,7 @@ export function PurchasesManagement({ products: propProducts, onAddProduct, onEd
                       className={`p-3 rounded-2xl border text-xs font-black uppercase flex items-center justify-center gap-2 transition-all cursor-pointer ${
                         settleModal.paymentMethod === 'Cash'
                           ? 'bg-emerald-600 border-emerald-400 text-white shadow-lg shadow-emerald-900/30'
-                          : 'bg-slate-800/80 border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800'
+                          : 'bg-slate-50 border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                       }`}
                     >
                       <Banknote className="w-4 h-4" />
@@ -1887,7 +1887,7 @@ export function PurchasesManagement({ products: propProducts, onAddProduct, onEd
                       className={`p-3 rounded-2xl border text-xs font-black uppercase flex items-center justify-center gap-2 transition-all cursor-pointer ${
                         settleModal.paymentMethod === 'Bank Transfer'
                           ? 'bg-blue-600 border-blue-400 text-white shadow-lg shadow-blue-900/30'
-                          : 'bg-slate-800/80 border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800'
+                          : 'bg-slate-50 border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                       }`}
                     >
                       <Building2 className="w-4 h-4" />
@@ -1899,7 +1899,7 @@ export function PurchasesManagement({ products: propProducts, onAddProduct, onEd
                 {/* Amount to Pay */}
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <label className="text-[11px] font-black uppercase tracking-wider text-slate-300">
+                    <label className="text-[11px] font-black uppercase tracking-wider text-slate-700">
                       Payment Amount (Rs.)
                     </label>
                     <button
@@ -1918,14 +1918,14 @@ export function PurchasesManagement({ products: propProducts, onAddProduct, onEd
                     onChange={(e) => setSettleModal(prev => ({ ...prev, amountPaid: e.target.value, error: null }))}
                     placeholder="Enter amount to pay..."
                     required
-                    className="w-full bg-slate-800 border border-slate-700 focus:border-teal-400 rounded-xl px-4 py-2.5 text-white font-black text-sm outline-none transition-all placeholder:text-slate-500"
+                    className="w-full bg-slate-50 border border-slate-200 focus:border-teal-600 rounded-xl px-4 py-2.5 text-slate-900 font-black text-sm outline-none transition-all placeholder:text-slate-500"
                   />
                 </div>
 
                 {/* Bank Transfer Receipt Attachment (Optional) */}
                 {settleModal.paymentMethod === 'Bank Transfer' && (
                   <div className="space-y-1.5 animate-in fade-in">
-                    <label className="text-[11px] font-black uppercase tracking-wider text-slate-300 block">
+                    <label className="text-[11px] font-black uppercase tracking-wider text-slate-700 block">
                       Bank Transfer Receipt / Screenshot (Optional)
                     </label>
                     <label className="flex flex-col items-center justify-center border-2 border-dashed border-slate-700 hover:border-blue-400 rounded-2xl p-3 cursor-pointer bg-slate-800/50 hover:bg-slate-800 transition-all">

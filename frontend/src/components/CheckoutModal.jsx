@@ -128,13 +128,13 @@ export function CheckoutModal({ isOpen, onClose, totalAmount, currency }) {
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md" onClick={e => { e.stopPropagation(); onClose(); }}>
       <div
-        className="bg-[#1E293B] border border-slate-700 w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl relative text-white animate-in zoom-in-95 duration-300 max-h-[92vh] overflow-y-auto"
+        className="bg-white border border-slate-200 w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl relative text-slate-900 animate-in zoom-in-95 duration-300 max-h-[92vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between p-5 border-b border-slate-700/60 bg-[#15202B] sticky top-0 z-10">
+        <div className="flex items-center justify-between p-5 border-b border-slate-200 bg-white sticky top-0 z-10">
           <h2 className="text-xl font-black uppercase tracking-tight">Checkout</h2>
-          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-all">
-            <X className="w-5 h-5 text-white" />
+          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-all text-slate-500">
+            <X className="w-5 h-5 text-slate-500" />
           </button>
         </div>
 
@@ -148,10 +148,10 @@ export function CheckoutModal({ isOpen, onClose, totalAmount, currency }) {
           {step === 1 && (
             <div className="space-y-4 animate-in slide-in-from-right">
               <h3 className="text-emerald-400 text-xs font-black uppercase tracking-widest">1. Shipping Details</h3>
-              <input type="text" placeholder="Full Name" value={shippingDetails.fullName} onChange={e => setShippingDetails({ ...shippingDetails, fullName: e.target.value })} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm font-bold text-white outline-none focus:border-emerald-500" />
-              <input type="text" placeholder="Phone Number" value={shippingDetails.phone} onChange={e => setShippingDetails({ ...shippingDetails, phone: e.target.value })} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm font-bold text-white outline-none focus:border-emerald-500" />
-              <input type="text" placeholder="Address" value={shippingDetails.address} onChange={e => setShippingDetails({ ...shippingDetails, address: e.target.value })} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm font-bold text-white outline-none focus:border-emerald-500" />
-              <input type="text" placeholder="City" value={shippingDetails.city} onChange={e => setShippingDetails({ ...shippingDetails, city: e.target.value })} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm font-bold text-white outline-none focus:border-emerald-500" />
+              <input type="text" placeholder="Full Name" value={shippingDetails.fullName} onChange={e => setShippingDetails({ ...shippingDetails, fullName: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-900 outline-none focus:border-emerald-500" />
+              <input type="text" placeholder="Phone Number" value={shippingDetails.phone} onChange={e => setShippingDetails({ ...shippingDetails, phone: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-900 outline-none focus:border-emerald-500" />
+              <input type="text" placeholder="Address" value={shippingDetails.address} onChange={e => setShippingDetails({ ...shippingDetails, address: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-900 outline-none focus:border-emerald-500" />
+              <input type="text" placeholder="City" value={shippingDetails.city} onChange={e => setShippingDetails({ ...shippingDetails, city: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-900 outline-none focus:border-emerald-500" />
 
               <button
                 onClick={() => setStep(2)}
@@ -173,31 +173,31 @@ export function CheckoutModal({ isOpen, onClose, totalAmount, currency }) {
               <div className="space-y-3">
                 <button
                   onClick={() => setPaymentMethod('COD')}
-                  className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${paymentMethod === 'COD' ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-700 bg-slate-900 hover:border-slate-500'}`}
+                  className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${paymentMethod === 'COD' ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-200 bg-slate-50 hover:border-slate-300 text-slate-900'}`}
                 >
                   <div className="p-2 bg-emerald-500/20 rounded-full text-emerald-400"><Truck className="w-5 h-5" /></div>
-                  <div className="text-left flex-1"><p className="font-bold">Cash on Delivery</p><p className="text-[10px] text-slate-400 uppercase tracking-wider">Pay when you receive</p></div>
+                  <div className="text-left flex-1"><p className="font-bold">Cash on Delivery</p><p className="text-[10px] text-slate-500 uppercase tracking-wider">Pay when you receive</p></div>
                 </button>
 
                 <button
                   onClick={() => setPaymentMethod('STRIPE')}
-                  className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${paymentMethod === 'STRIPE' ? 'border-indigo-500 bg-indigo-500/10' : 'border-slate-700 bg-slate-900 hover:border-slate-500'}`}
+                  className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${paymentMethod === 'STRIPE' ? 'border-indigo-500 bg-indigo-500/10' : 'border-slate-200 bg-slate-50 hover:border-slate-300 text-slate-900'}`}
                 >
                   <div className="p-2 bg-indigo-500/20 rounded-full text-indigo-400"><CreditCard className="w-5 h-5" /></div>
-                  <div className="text-left flex-1"><p className="font-bold">Bank Card (Stripe)</p><p className="text-[10px] text-slate-400 uppercase tracking-wider">Secure card payment</p></div>
+                  <div className="text-left flex-1"><p className="font-bold">Bank Card (Stripe)</p><p className="text-[10px] text-slate-500 uppercase tracking-wider">Secure card payment</p></div>
                 </button>
 
                 <button
                   onClick={() => setPaymentMethod('EASYPAISA')}
-                  className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${paymentMethod === 'EASYPAISA' ? 'border-green-500 bg-green-500/10' : 'border-slate-700 bg-slate-900 hover:border-slate-500'}`}
+                  className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${paymentMethod === 'EASYPAISA' ? 'border-green-500 bg-green-500/10' : 'border-slate-200 bg-slate-50 hover:border-slate-300 text-slate-900'}`}
                 >
                   <div className="p-2 bg-green-500/20 rounded-full text-green-400"><Wallet className="w-5 h-5" /></div>
                   <div className="text-left flex-1"><p className="font-bold">EasyPaisa</p><p className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">Instant Real-Time Transfer & Scan</p></div>
                 </button>
               </div>
 
-              <div className="flex gap-3 pt-4 border-t border-slate-700/60">
-                <button onClick={() => setStep(1)} className="flex-1 py-4 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-black text-xs uppercase tracking-[0.1em]">Back</button>
+              <div className="flex gap-3 pt-4 border-t border-slate-200">
+                <button onClick={() => setStep(1)} className="flex-1 py-4 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl font-black text-xs uppercase tracking-[0.1em]">Back</button>
                 <button
                   onClick={handleProcessCheckout}
                   disabled={loading}
@@ -226,7 +226,7 @@ export function CheckoutModal({ isOpen, onClose, totalAmount, currency }) {
                 </div>
               )}
 
-              <button onClick={onClose} className="w-full py-4 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-black text-xs uppercase tracking-[0.1em]">
+              <button onClick={onClose} className="w-full py-4 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl font-black text-xs uppercase tracking-[0.1em]">
                 Continue Shopping
               </button>
             </div>
@@ -235,7 +235,7 @@ export function CheckoutModal({ isOpen, onClose, totalAmount, currency }) {
           {step === 4 && easyPaisaData && (
             <div className="space-y-4 animate-in slide-in-from-right text-left">
               {/* Top Banner */}
-              <div className="flex items-center justify-between p-3.5 bg-gradient-to-r from-emerald-950 via-slate-900 to-emerald-950 border border-emerald-500/40 rounded-2xl">
+              <div className="flex items-center justify-between p-3.5 bg-gradient-to-r from-slate-50 via-emerald-50/50 to-slate-50 border border-emerald-200 rounded-2xl">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 bg-emerald-500/20 rounded-xl text-emerald-400 border border-emerald-500/30">
                     <Wallet className="w-6 h-6" />
@@ -245,23 +245,23 @@ export function CheckoutModal({ isOpen, onClose, totalAmount, currency }) {
                       EasyPaisa Instant Payment
                       <span className="px-2 py-0.5 bg-emerald-500 text-black text-[9px] font-black rounded-full uppercase">Real-Time</span>
                     </h3>
-                    <p className="text-[11px] text-slate-300">Scan QR Code or send money to SuperAdmin account</p>
+                    <p className="text-[11px] text-slate-600">Scan QR Code or send money to SuperAdmin account</p>
                   </div>
                 </div>
               </div>
 
               {/* Mode Switcher Tabs */}
-              <div className="flex bg-slate-900 p-1.5 rounded-2xl border border-slate-700/80">
+              <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
                 <button
                   onClick={() => setPayMode('qr')}
-                  className={`flex-1 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${payMode === 'qr' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'
+                  className={`flex-1 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${payMode === 'qr' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
                     }`}
                 >
                   <QrCode className="w-4 h-4" /> Scan EasyPaisa QR
                 </button>
                 <button
                   onClick={() => setPayMode('number')}
-                  className={`flex-1 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${payMode === 'number' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'
+                  className={`flex-1 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${payMode === 'number' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
                     }`}
                 >
                   <PhoneCall className="w-4 h-4" /> EasyPaisa Number
@@ -270,7 +270,7 @@ export function CheckoutModal({ isOpen, onClose, totalAmount, currency }) {
 
               {/* QR Code Section */}
               {payMode === 'qr' && (
-                <div className="bg-slate-900 border border-slate-700/80 rounded-2xl p-5 flex flex-col items-center text-center space-y-3">
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 flex flex-col items-center text-center space-y-3">
                   <div className="p-3 bg-white rounded-2xl border-4 border-emerald-500 shadow-2xl relative group">
                     <img src={qrCodeUrl} alt="EasyPaisa QR Code" className="w-44 h-44 object-contain" />
                     <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[11px] font-bold transition-all rounded-xl">
@@ -286,16 +286,16 @@ export function CheckoutModal({ isOpen, onClose, totalAmount, currency }) {
 
               {/* Phone Number Section */}
               {payMode === 'number' && (
-                <div className="bg-slate-900 border border-slate-700/80 rounded-2xl p-4 space-y-3">
-                  <div className="flex justify-between items-center pb-2 border-b border-slate-800">
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
+                  <div className="flex justify-between items-center pb-2 border-b border-slate-200">
                     <span className="text-xs font-bold text-slate-400 uppercase">Amount to Send:</span>
                     <span className="text-lg font-black text-emerald-400">{displayCurrency} {easyPaisaData.transactionAmount?.toLocaleString()}</span>
                   </div>
 
                   <div className="space-y-1">
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">SuperAdmin EasyPaisa Number:</span>
-                    <div className="flex items-center justify-between bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5">
-                      <span className="text-lg font-black tracking-widest text-white">{superAdminNum}</span>
+                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">SuperAdmin EasyPaisa Number:</span>
+                    <div className="flex items-center justify-between bg-white border border-slate-200 rounded-xl px-3 py-2.5">
+                      <span className="text-lg font-black tracking-widest text-slate-900">{superAdminNum}</span>
                       <button
                         onClick={handleCopyNumber}
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition-all shadow-md active:scale-95"
@@ -315,13 +315,13 @@ export function CheckoutModal({ isOpen, onClose, totalAmount, currency }) {
 
               {/* Upload Screenshot Section */}
               <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-300 flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
                   <span>Upload Transaction Screenshot (Proof):</span>
                   {uploadingProof && <span className="text-emerald-400 flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Uploading...</span>}
                 </label>
 
                 {paymentProof ? (
-                  <div className="relative bg-slate-900 border border-emerald-500/50 rounded-2xl p-2.5 flex items-center gap-3">
+                  <div className="relative bg-slate-50 border border-emerald-500/50 rounded-2xl p-2.5 flex items-center gap-3">
                     <img src={paymentProof} alt="Proof preview" className="w-14 h-14 object-cover rounded-xl border border-slate-700" />
                     <div className="flex-1">
                       <p className="text-xs font-bold text-emerald-400 flex items-center gap-1">
@@ -334,7 +334,7 @@ export function CheckoutModal({ isOpen, onClose, totalAmount, currency }) {
                     </button>
                   </div>
                 ) : (
-                  <label className="border-2 border-dashed border-slate-700 hover:border-emerald-500/60 bg-slate-900/60 rounded-2xl p-4 flex flex-col items-center justify-center cursor-pointer transition-all hover:bg-slate-900">
+                  <label className="border-2 border-dashed border-slate-300 hover:border-emerald-500/60 bg-slate-50 rounded-2xl p-4 flex flex-col items-center justify-center cursor-pointer transition-all hover:bg-slate-100">
                     <Upload className="w-6 h-6 text-slate-400 mb-1" />
                     <span className="text-xs font-bold text-slate-300">Click to upload EasyPaisa Receipt / Screenshot</span>
                     <span className="text-[10px] text-slate-500 mt-0.5">PNG, JPG, WEBP screenshot of successful transfer</span>
@@ -350,13 +350,13 @@ export function CheckoutModal({ isOpen, onClose, totalAmount, currency }) {
                   placeholder="e.g. 03xx-xxxxxxx or TRX ID"
                   value={txRef}
                   onChange={e => setTxRef(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm font-bold text-white outline-none focus:border-emerald-500"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-900 outline-none focus:border-emerald-500"
                 />
               </div>
 
               {/* Action Button */}
               <div className="flex gap-3 pt-2">
-                <button onClick={() => setStep(2)} className="flex-1 py-3.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-black text-xs uppercase tracking-[0.1em]">Back</button>
+                <button onClick={() => setStep(2)} className="flex-1 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl font-black text-xs uppercase tracking-[0.1em]">Back</button>
                 <button
                   onClick={handleConfirmEasyPaisa}
                   disabled={confirming || uploadingProof}

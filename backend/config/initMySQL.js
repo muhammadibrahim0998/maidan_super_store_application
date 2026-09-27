@@ -246,6 +246,9 @@ export async function initMySQLTables(forceRecreate = false) {
       id INT AUTO_INCREMENT PRIMARY KEY,
       shopId INT DEFAULT 1,
       customerId INT DEFAULT NULL,
+      customerName VARCHAR(255) DEFAULT '',
+      customerPhone VARCHAR(50) DEFAULT '',
+      customerEmail VARCHAR(255) DEFAULT '',
       items JSON,
       totalAmount DECIMAL(14,2) NOT NULL DEFAULT 0,
       shippingDetails JSON,
@@ -254,12 +257,22 @@ export async function initMySQLTables(forceRecreate = false) {
       orderStatus VARCHAR(50) DEFAULT 'PROCESSING',
       transactionId VARCHAR(255),
       paymentProof TEXT,
+      notes TEXT DEFAULT NULL,
       createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
       updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       KEY idx_orders_shopId (shopId),
       KEY idx_orders_customerId (customerId)
     ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
   `);
+
+  try {
+    const [ordCols] = await pool.query('SHOW COLUMNS FROM orders');
+    const existingOrdCols = new Set(ordCols.map(c => c.Field));
+    if (!existingOrdCols.has('customerName')) await pool.query("ALTER TABLE orders ADD COLUMN `customerName` VARCHAR(255) DEFAULT ''");
+    if (!existingOrdCols.has('customerPhone')) await pool.query("ALTER TABLE orders ADD COLUMN `customerPhone` VARCHAR(50) DEFAULT ''");
+    if (!existingOrdCols.has('customerEmail')) await pool.query("ALTER TABLE orders ADD COLUMN `customerEmail` VARCHAR(255) DEFAULT ''");
+    if (!existingOrdCols.has('notes')) await pool.query("ALTER TABLE orders ADD COLUMN `notes` TEXT DEFAULT NULL");
+  } catch (colErr) { }
 
   // 11. EasyPaisa Orders Table (dedicated for EasyPaisa/JazzCash payments)
   await pool.query(`

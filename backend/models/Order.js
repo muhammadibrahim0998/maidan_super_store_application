@@ -6,8 +6,11 @@ export default class Order extends BaseMySQLModel {
 
   constructor(data = {}) {
     super(data);
-    this.shopId = data.shopId || '';
-    this.customerId = data.customerId || '';
+    this.shopId = data.shopId || 1;
+    this.customerId = data.customerId || null;
+    this.customerName = data.customerName || data.shippingDetails?.fullName || '';
+    this.customerPhone = data.customerPhone || data.shippingDetails?.phone || '';
+    this.customerEmail = data.customerEmail || data.shippingDetails?.email || '';
     this.items = Array.isArray(data.items) ? data.items : (typeof data.items === 'string' ? JSON.parse(data.items || '[]') : []);
     this.totalAmount = Number(data.totalAmount) || 0;
     this.shippingDetails = data.shippingDetails && typeof data.shippingDetails === 'object'
@@ -18,6 +21,7 @@ export default class Order extends BaseMySQLModel {
     this.orderStatus = data.orderStatus || 'PROCESSING';
     this.transactionId = data.transactionId || '';
     this.paymentProof = data.paymentProof || '';
+    this.notes = data.notes || '';
     this.createdAt = data.createdAt || new Date();
     this.updatedAt = data.updatedAt || new Date();
   }

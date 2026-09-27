@@ -72,23 +72,23 @@ export default function UserOrderModal({ setOrderOpen }) {
       className="fixed inset-0 z-[999] overflow-y-auto bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6"
       onClick={(e) => { if (e.target === e.currentTarget) closeModal(); }}
     >
-      <div className="relative w-full max-w-4xl rounded-3xl bg-slate-900 text-white shadow-2xl border border-slate-700 overflow-hidden animate-in zoom-in-95 duration-200">
+      <div className="relative w-full max-w-4xl rounded-3xl bg-white text-slate-900 shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4 bg-slate-900/90 sticky top-0 z-10">
+        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4 bg-white sticky top-0 z-10">
           <div className="flex items-center gap-3">
             <div className="p-2.5 bg-emerald-500/20 rounded-2xl border border-emerald-500/30 text-emerald-400">
               <Truck className="w-6 h-6" />
             </div>
             <div>
-              <h2 className="text-xl font-black uppercase tracking-tight text-white">My Orders & Payment Status</h2>
-              <p className="text-xs font-bold text-slate-400">
+              <h2 className="text-xl font-black uppercase tracking-tight text-slate-900">My Orders & Payment Status</h2>
+              <p className="text-xs font-bold text-slate-500">
                 Track your EasyPaisa & online order statuses ({orders.length} orders found)
               </p>
             </div>
           </div>
           <button
             onClick={closeModal}
-            className="rounded-xl p-2 text-slate-400 hover:bg-slate-800 hover:text-white transition"
+            className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-900 transition"
             aria-label="Close modal"
           >
             <X className="w-6 h-6" />
@@ -100,7 +100,7 @@ export default function UserOrderModal({ setOrderOpen }) {
           {loading ? (
             <div className="flex flex-col items-center justify-center py-16">
               <div className="h-10 w-10 animate-spin rounded-full border-4 border-emerald-500/30 border-t-emerald-500"></div>
-              <p className="mt-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Loading your orders…</p>
+              <p className="mt-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Loading your orders…</p>
             </div>
           ) : error ? (
             <div className="flex flex-col items-center justify-center py-12 text-center space-y-3">
@@ -125,14 +125,14 @@ export default function UserOrderModal({ setOrderOpen }) {
                 <div
                   key={order._id}
                   onClick={() => setSelectedOrder(order)}
-                  className="bg-slate-800/80 hover:bg-slate-800 border border-slate-700/80 rounded-2xl p-5 shadow-lg transition-all cursor-pointer hover:border-emerald-500/40 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4"
+                  className="bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-2xl p-5 shadow-sm transition-all cursor-pointer hover:border-emerald-500/40 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4"
                 >
                   <div className="space-y-2 flex-1 min-w-0">
                     <div className="flex items-center gap-2.5 flex-wrap">
-                      <span className="text-xs font-black px-3 py-1 bg-slate-950 text-emerald-400 rounded-lg border border-slate-800">
+                      <span className="text-xs font-black px-3 py-1 bg-white text-emerald-700 rounded-lg border border-slate-200">
                         #{order._id.slice(-6).toUpperCase()}
                       </span>
-                      <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-slate-700 text-slate-200 border border-slate-600">
+                      <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-700 border border-slate-300">
                         {order.paymentMethod || 'COD'}
                       </span>
                       <span className={`text-[10px] font-black uppercase px-3 py-0.5 rounded-full border ${getBadgeClass(PAYMENT_STATUS_COLORS, order.paymentStatus)}`}>
@@ -143,21 +143,21 @@ export default function UserOrderModal({ setOrderOpen }) {
                       </span>
                     </div>
 
-                    <div className="text-xs font-bold text-slate-300 truncate" title={getProductSummary(order.items)}>
-                      Items: <span className="text-white">{getProductSummary(order.items)}</span>
+                    <div className="text-xs font-bold text-slate-600 truncate" title={getProductSummary(order.items)}>
+                      Items: <span className="text-slate-900 font-bold">{getProductSummary(order.items)}</span>
                     </div>
 
-                    <div className="text-[11px] font-medium text-slate-400">
+                    <div className="text-[11px] font-medium text-slate-500">
                       Date: {formatDate(order.createdAt)}
                     </div>
                   </div>
 
-                  <div className="flex flex-row sm:flex-col items-end justify-between w-full sm:w-auto shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-700/60">
+                  <div className="flex flex-row sm:flex-col items-end justify-between w-full sm:w-auto shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-200">
                     <div className="text-right">
                       <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Total Amount</span>
-                      <span className="text-lg font-black text-emerald-400">{formatCurrency(order.totalAmount)}</span>
+                      <span className="text-lg font-black text-emerald-700">{formatCurrency(order.totalAmount)}</span>
                     </div>
-                    <span className="text-[10px] font-black text-emerald-400 uppercase tracking-wider underline mt-1">
+                    <span className="text-[10px] font-black text-emerald-700 uppercase tracking-wider underline mt-1">
                       View Details →
                     </span>
                   </div>
@@ -168,9 +168,9 @@ export default function UserOrderModal({ setOrderOpen }) {
         </div>
 
         {/* Footer */}
-        <div className="border-t border-slate-800 px-6 py-3 bg-slate-900/90 flex justify-between items-center text-xs text-slate-400">
+        <div className="border-t border-slate-200 px-6 py-3 bg-slate-50 flex justify-between items-center text-xs text-slate-500">
           <span>Click any order for full breakdown</span>
-          <button onClick={closeModal} className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl uppercase tracking-wider transition">
+          <button onClick={closeModal} className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs rounded-xl uppercase tracking-wider transition">
             Close
           </button>
         </div>
@@ -182,12 +182,12 @@ export default function UserOrderModal({ setOrderOpen }) {
           className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
           onClick={(e) => { if (e.target === e.currentTarget) setSelectedOrder(null); }}
         >
-          <div className="w-full max-w-lg bg-slate-900 border border-slate-700 rounded-3xl p-6 shadow-2xl space-y-4 text-white animate-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div className="w-full max-w-lg bg-white border border-slate-200 rounded-3xl p-6 shadow-2xl space-y-4 text-slate-900 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
               <h3 className="font-black text-base text-emerald-400 uppercase tracking-tight">
                 Order #{selectedOrder._id.slice(-6).toUpperCase()} Details
               </h3>
-              <button onClick={() => setSelectedOrder(null)} className="p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white rounded-lg">
+              <button onClick={() => setSelectedOrder(null)} className="p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-900 rounded-lg">
                 <X className="w-5 h-5" />
               </button>
             </div>

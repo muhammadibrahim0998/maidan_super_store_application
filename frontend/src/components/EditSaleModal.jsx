@@ -54,10 +54,10 @@ export function EditSaleModal({ isOpen, onClose, sale, onSave }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-zinc-900/40 backdrop-blur-md animate-in fade-in duration-300" onClick={onClose} />
 
-      <div className="relative w-[95%] sm:w-[500px] bg-[#1a1c1e] rounded-xl border border-[var(--color-border-subtle)] shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto scrollbar-hide z-10 mx-auto">
+      <div className="relative w-[95%] sm:w-[500px] bg-white rounded-xl border border-slate-200 shadow-2xl text-slate-900 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto scrollbar-hide z-10 mx-auto">
 
         {/* Header */}
-        <div className="flex items-center justify-between p-6 sm:p-8 bg-[#202327]/40 backdrop-blur-md border-b border-[var(--color-border-subtle)] shrink-0">
+        <div className="flex items-center justify-between p-6 sm:p-8 bg-slate-50 border-b border-slate-200 shrink-0">
           <div className="space-y-1">
             <h2 className="text-2xl font-black text-[var(--color-text-primary)] tracking-tighter uppercase leading-none italic">Modify Record</h2>
             <p className="text-[9px] font-bold text-[var(--color-text-muted)] uppercase tracking-widest">Tx ID: #{sale._id.slice(-6).toUpperCase()}</p>

@@ -77,19 +77,19 @@ function CustomerAuthView({ shopInfo }) {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white flex flex-col justify-center items-center p-4 relative overflow-x-hidden overflow-y-auto selection:bg-emerald-500/30">
+    <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col justify-center items-center p-4 relative overflow-x-hidden overflow-y-auto selection:bg-emerald-500/30">
       {/* ─── 5-Image Real Perfume Dynamic Slider in Background (2s interval) ─── */}
       <AuthBackgroundSlider />
 
       <div className="w-full max-w-[420px] z-10 animate-in fade-in zoom-in-95 duration-500 flex flex-col items-center py-4">
         <button
           onClick={() => navigate('/shop')}
-          className="mb-4 inline-flex items-center gap-2 text-xs font-bold text-emerald-400 hover:text-emerald-300 transition-colors uppercase tracking-widest bg-slate-950/80 px-4 py-2 rounded-full border border-emerald-500/30 backdrop-blur-md shadow-lg"
+          className="mb-4 inline-flex items-center gap-2 text-xs font-bold text-emerald-700 hover:text-emerald-800 transition-colors uppercase tracking-widest bg-white px-4 py-2 rounded-full border border-slate-200 shadow-sm"
         >
           <ArrowLeft className="w-4 h-4" /> Back to Store Selector
         </button>
 
-        <div className="w-full bg-slate-950/85 backdrop-blur-2xl border border-slate-700/80 rounded-3xl p-6 sm:p-8 shadow-[0_25px_70px_rgba(0,0,0,0.9)] relative overflow-hidden text-white">
+        <div className="w-full bg-white backdrop-blur-2xl border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-xl relative overflow-hidden text-slate-900">
           <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-amber-500 via-emerald-500 to-amber-500" />
 
           <div className="text-center mb-6">
@@ -102,24 +102,24 @@ function CustomerAuthView({ shopInfo }) {
                 )}
               </div>
             </div>
-            <h1 className="text-xl font-black tracking-tight text-white uppercase italic">{shopInfo?.name || 'Customer Portal'}</h1>
+            <h1 className="text-xl font-black tracking-tight text-slate-900 uppercase italic">{shopInfo?.name || 'Customer Portal'}</h1>
             <p className="text-emerald-400 text-[10px] font-black uppercase tracking-[0.2em] mt-1">
               Customer Store Login / Register
             </p>
           </div>
 
-          <div className="flex bg-slate-900 rounded-2xl p-1 mb-5 border border-slate-700">
+          <div className="flex bg-slate-100 rounded-2xl p-1 mb-5 border border-slate-200">
             <button
               type="button"
               onClick={() => { setMode('register'); setError(''); setSuccess(''); }}
-              className={`flex-1 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${mode === 'register' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}
+              className={`flex-1 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${mode === 'register' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
             >
               1. Register
             </button>
             <button
               type="button"
               onClick={() => { setMode('login'); setError(''); setSuccess(''); }}
-              className={`flex-1 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${mode === 'login' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}
+              className={`flex-1 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${mode === 'login' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
             >
               2. Sign In
             </button>
@@ -141,7 +141,7 @@ function CustomerAuthView({ shopInfo }) {
           <form onSubmit={submit} className="space-y-3.5">
             {mode === 'register' && (
               <div className="space-y-1">
-                <label className="text-[9px] font-black text-slate-300 uppercase tracking-widest pl-1">Full Name</label>
+                <label className="text-[9px] font-black text-slate-600 uppercase tracking-widest pl-1">Full Name</label>
                 <div className="relative group">
                   <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
@@ -150,14 +150,14 @@ function CustomerAuthView({ shopInfo }) {
                     value={form.fullName}
                     onChange={handle('fullName')}
                     required
-                    className="w-full bg-slate-900 border border-slate-700 focus:border-emerald-500 rounded-xl py-2.5 pl-10 pr-4 text-white text-xs font-bold placeholder:text-slate-500 outline-none transition-all"
+                    className="w-full bg-slate-50 border border-slate-300 focus:border-emerald-500 rounded-xl py-2.5 pl-10 pr-4 text-slate-900 text-xs font-bold placeholder:text-slate-400 outline-none transition-all"
                   />
                 </div>
               </div>
             )}
 
             <div className="space-y-1">
-              <label className="text-[9px] font-black text-slate-300 uppercase tracking-widest pl-1">Email Address</label>
+              <label className="text-[9px] font-black text-slate-600 uppercase tracking-widest pl-1">Email Address</label>
               <div className="relative group">
                 <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
@@ -166,13 +166,13 @@ function CustomerAuthView({ shopInfo }) {
                   value={form.email}
                   onChange={handle('email')}
                   required
-                  className="w-full bg-slate-900 border border-slate-700 focus:border-emerald-500 rounded-xl py-2.5 pl-10 pr-4 text-white text-xs font-bold placeholder:text-slate-500 outline-none transition-all"
+                  className="w-full bg-slate-50 border border-slate-300 focus:border-emerald-500 rounded-xl py-2.5 pl-10 pr-4 text-slate-900 text-xs font-bold placeholder:text-slate-400 outline-none transition-all"
                 />
               </div>
             </div>
 
             <div className="space-y-1">
-              <label className="text-[9px] font-black text-slate-300 uppercase tracking-widest pl-1">Password</label>
+              <label className="text-[9px] font-black text-slate-600 uppercase tracking-widest pl-1">Password</label>
               <div className="relative group">
                 <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
@@ -181,7 +181,7 @@ function CustomerAuthView({ shopInfo }) {
                   value={form.password}
                   onChange={handle('password')}
                   required
-                  className="w-full bg-slate-900 border border-slate-700 focus:border-emerald-500 rounded-xl py-2.5 pl-10 pr-11 text-white text-xs font-bold placeholder:text-slate-500 outline-none transition-all"
+                  className="w-full bg-slate-50 border border-slate-300 focus:border-emerald-500 rounded-xl py-2.5 pl-10 pr-11 text-slate-900 text-xs font-bold placeholder:text-slate-400 outline-none transition-all"
                 />
                 <button
                   type="button"
@@ -236,11 +236,11 @@ function CartDrawer({ currency }) {
     <div className="fixed inset-0 z-[150] flex justify-end" onClick={() => setCartOpen(false)}>
       <div className="absolute inset-0 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-300" />
       <div
-        className="relative w-full max-w-md bg-gradient-to-b from-[#182232] via-[#0f172a] to-[#0b1120] border-l-2 border-slate-700/80 shadow-[0_0_50px_rgba(0,0,0,0.8),-10px_0_30px_rgba(30,41,59,0.5)] flex flex-col animate-in slide-in-from-right duration-300 text-white"
+        className="relative w-full max-w-md bg-white border-l-2 border-slate-200 text-slate-900/80 shadow-[0_0_50px_rgba(0,0,0,0.8),-10px_0_30px_rgba(30,41,59,0.5)] flex flex-col animate-in slide-in-from-right duration-300 text-white"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-slate-800/80 bg-slate-900/90 backdrop-blur-md">
+        <div className="flex items-center justify-between p-5 border-b border-slate-200 bg-white">
           <div className="flex items-center gap-3">
             <div className="p-2.5 bg-slate-800/90 rounded-2xl border border-slate-700/80 shadow-inner flex items-center justify-center">
               <ShoppingCart className="w-5 h-5 text-emerald-400" />
@@ -265,7 +265,7 @@ function CartDrawer({ currency }) {
         <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3.5">
           {cart.length === 0 ? (
             <div className="text-center py-24 flex flex-col items-center justify-center">
-              <div className="p-6 bg-slate-900/90 rounded-3xl border border-slate-800 mb-4 shadow-inner">
+              <div className="p-6 bg-slate-50 rounded-3xl border border-slate-200 mb-4">
                 <ShoppingCart className="w-12 h-12 text-slate-600 animate-pulse" />
               </div>
               <p className="text-slate-300 font-black uppercase tracking-wider text-sm">Your Cart is Empty</p>
@@ -363,8 +363,8 @@ function CartDrawer({ currency }) {
 
         {/* Footer Area with 3D Action Buttons */}
         {cart.length > 0 && (
-          <div className="p-5 border-t border-slate-800/90 bg-slate-900/95 space-y-3 backdrop-blur-md">
-            <div className="flex items-center justify-between p-3 bg-slate-950/80 rounded-2xl border border-slate-800">
+          <div className="p-5 border-t border-slate-200 bg-slate-50 space-y-3">
+            <div className="flex items-center justify-between p-3 bg-white rounded-2xl border border-slate-200">
               <span className="text-slate-400 font-bold uppercase text-xs tracking-wider">Total Amount</span>
               <span className="text-2xl font-black text-emerald-400 tracking-tight drop-shadow-sm">
                 {safeCurrency} {cartTotal.toLocaleString()}
@@ -4590,7 +4590,7 @@ function StoreContent({ shopId }) {
 
 
   return (
-    <div className={`flex flex-col h-[100dvh] overflow-hidden ${isAdminUser ? 'bg-slate-100 text-zinc-900' : 'bg-[#0f172a] text-white'} w-full tracking-tight`}>
+    <div className={`flex flex-col h-[100dvh] overflow-hidden bg-slate-100 text-zinc-900 w-full tracking-tight`}>
       {/* Cart Drawer */}
       <CartDrawer currency={currency} />
 
@@ -5023,8 +5023,8 @@ function StoreContent({ shopId }) {
           <main id="main-store-content" className="flex-1 w-full overflow-y-auto p-3 sm:p-4 lg:p-6 scroll-smooth bg-slate-100 text-slate-900">
             <div className="max-w-7xl mx-auto space-y-3">
 
-              {/* ─── Header Banner (Clean White & Gray Aesthetic) ─── */}
-              <div className="relative border border-slate-200 rounded-xl px-3.5 py-2 sm:px-4 sm:py-2.5 shadow-xs flex items-center justify-between gap-3 overflow-hidden w-full bg-white text-slate-900">
+              {/* ─── Header Banner (Clean Gray Aesthetic) ─── */}
+              <div className="relative border border-slate-300 rounded-xl px-3.5 py-2 sm:px-4 sm:py-2.5 shadow-xs flex items-center justify-between gap-3 overflow-hidden w-full bg-slate-100 text-slate-900">
                 <div className="relative z-10 flex items-center justify-between w-full gap-3 flex-wrap">
                   <div className="flex items-center gap-2 shrink-0">
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-slate-700 text-[10px] font-black uppercase tracking-wider shrink-0 shadow-xs">
@@ -5374,7 +5374,7 @@ function StoreContent({ shopId }) {
 
               {/* ─── PURCHASES & RESTOCKS VIEW FOR SHOP ADMIN ─── */}
               {activeView === 'purchases' && (
-                <div className="bg-white border border-zinc-200 rounded-3xl p-6 shadow-xl text-zinc-900">
+                <div className="bg-slate-100 border border-slate-300 rounded-3xl p-6 shadow-xl text-slate-900">
                   <PurchasesManagement
                     products={items}
                     onAddProduct={() => setAddProductModal(true)}
@@ -5486,7 +5486,7 @@ function StoreContent({ shopId }) {
                         return (
                           <div
                             key={item._id}
-                            className={`group bg-gradient-to-b from-slate-900 via-slate-850 to-slate-950 border-2 rounded-2xl sm:rounded-3xl overflow-hidden transition-all duration-500 hover:-translate-y-2 hover:scale-[1.02] flex flex-col ${itemOutOfStock
+                            className={`group bg-white border border-slate-200 rounded-2xl sm:rounded-3xl overflow-hidden transition-all duration-500 hover:-translate-y-2 hover:scale-[1.02] flex flex-col shadow-sm ${itemOutOfStock
                               ? 'border-red-500/40 opacity-85 shadow-[0_8px_20px_-4px_rgba(239,68,68,0.2)]'
                               : itemLowStock
                                 ? 'border-amber-500/60 shadow-[0_8px_20px_-4px_rgba(245,158,11,0.25),0_0_10px_rgba(15,23,42,0.5)] hover:shadow-[0_16px_35px_-6px_rgba(15,23,42,0.7),0_0_20px_rgba(37,99,235,0.35),0_0_15px_rgba(245,158,11,0.25)] hover:border-amber-400'
@@ -5503,7 +5503,7 @@ function StoreContent({ shopId }) {
                                 </div>
                               )}
                               {/* Dark to Blue Gradient Overlay on Card Bottom */}
-                              <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-black/20 opacity-80 group-hover:opacity-50 transition-opacity duration-500 pointer-events-none" />
+                              <div className="absolute inset-0 hidden" />
 
                               {/* Category Badge - Glows Blue on Hover */}
                               <div className="absolute top-3 left-3 bg-slate-950/85 group-hover:bg-blue-600/90 text-blue-300 group-hover:text-white px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-blue-400/30 group-hover:border-blue-300 shadow-md backdrop-blur-md transition-all duration-300">
@@ -5529,9 +5529,9 @@ function StoreContent({ shopId }) {
                             </button>
 
                             {/* Item Info & Action Buttons */}
-                            <div className="p-4 flex flex-col flex-1 justify-between gap-3 bg-slate-900/60">
+                            <div className="p-4 flex flex-col flex-1 justify-between gap-3 bg-white">
                               <button onClick={() => setSelectedItem(item)} className="text-left space-y-1 cursor-pointer">
-                                <h3 className="font-black text-white text-sm leading-snug line-clamp-2 uppercase tracking-tight group-hover:text-cyan-300 transition-colors duration-300">
+                                <h3 className="font-black text-slate-900 text-sm leading-snug line-clamp-2 uppercase tracking-tight group-hover:text-emerald-700 transition-colors duration-300">
                                   {item.name}
                                 </h3>
                                 <p className="text-emerald-400 group-hover:text-cyan-400 font-black text-lg transition-colors duration-300 drop-shadow-sm">
@@ -6343,13 +6343,13 @@ function StoreContent({ shopId }) {
               {activeView === 'registered-customers' && isAdminUser && (
                 <div className="space-y-4 sm:space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                   {/* Top Header Banner */}
-                  <div className="bg-gradient-to-r from-[#1B3817] via-[#24491F] to-[#0f172a] p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-white/10 shadow-xl text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+                  <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm text-slate-900 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
                     <div>
-                      <div className="flex items-center gap-2 text-indigo-400 text-[10px] sm:text-xs font-black uppercase tracking-widest mb-0.5">
-                        <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> Customer Management Directory
+                      <div className="flex items-center gap-2 text-slate-500 text-[10px] sm:text-xs font-black uppercase tracking-widest mb-0.5">
+                        <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600" /> Customer Management Directory
                       </div>
-                      <h2 className="text-lg sm:text-2xl font-black uppercase italic tracking-tight">Registered Customers Directory</h2>
-                      <p className="text-slate-300 text-[11px] sm:text-xs mt-0.5 leading-relaxed">
+                      <h2 className="text-lg sm:text-2xl font-black uppercase tracking-tight text-slate-900">Registered Customers Directory</h2>
+                      <p className="text-slate-500 text-[11px] sm:text-xs mt-0.5 leading-relaxed">
                         View all customer accounts registered to this shop and print individual customer statement records.
                       </p>
                     </div>
@@ -6357,16 +6357,16 @@ function StoreContent({ shopId }) {
                     <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
                       <button
                         onClick={handleSyncSalesCustomers}
-                        className="flex-1 sm:flex-initial px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95 cursor-pointer shrink-0"
+                        className="flex-1 sm:flex-initial px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-2xs transition-all active:scale-95 cursor-pointer shrink-0"
                         title="Sync all walk-in and credit bills into registered customers directory"
                       >
-                        <RefreshCw className="w-4 h-4" />
+                        <RefreshCw className="w-4 h-4 text-emerald-600" />
                         <span>Sync POS Bills</span>
                       </button>
 
                       <button
                         onClick={fetchRegisteredCustomers}
-                        className="flex-1 sm:flex-initial px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95 cursor-pointer shrink-0"
+                        className="flex-1 sm:flex-initial px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-2xs transition-all active:scale-95 cursor-pointer shrink-0"
                       >
                         <RefreshCw className="w-4 h-4" />
                         <span>Refresh List</span>
@@ -8985,7 +8985,7 @@ function StoreContent({ shopId }) {
       {selectedItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setSelectedItem(null)}>
           <div
-            className="bg-gradient-to-b from-slate-900 via-slate-850 to-slate-950 border-2 border-blue-500/50 rounded-3xl w-full max-w-[370px] sm:max-w-[390px] overflow-hidden shadow-[0_20px_60px_-10px_rgba(37,99,235,0.55),0_0_35px_rgba(59,130,246,0.3)] animate-in zoom-in-95 duration-300 text-white"
+            className="bg-white border-2 border-slate-200 rounded-3xl w-full max-w-[370px] sm:max-w-[390px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 text-slate-900"
             onClick={e => e.stopPropagation()}
           >
             {/* Image Header with Glow Gradient */}
@@ -9018,11 +9018,11 @@ function StoreContent({ shopId }) {
             {/* Modal Body */}
             <div className="p-4 sm:p-5 space-y-3">
               <div>
-                <h2 className="text-base sm:text-lg font-black text-white tracking-tight uppercase truncate">
+                <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight uppercase truncate">
                   {selectedItem.name}
                 </h2>
                 {selectedItem.description ? (
-                  <p className="text-slate-300 text-[11px] leading-relaxed font-medium mt-0.5 line-clamp-2">
+                  <p className="text-slate-600 text-[11px] leading-relaxed font-medium mt-0.5 line-clamp-2">
                     {selectedItem.description}
                   </p>
                 ) : (
@@ -9863,7 +9863,7 @@ function ShopsList() {
                     )}
                   </div>
 
-                  <div className="space-y-1 mb-4 bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
+                  <div className="space-y-1 mb-4 bg-white p-2.5 rounded-xl border border-slate-800">
                     <p className="text-[10px] font-bold text-slate-400 flex items-center justify-between">
                       <span className="text-emerald-400 font-mono text-[9px] uppercase">Unique ID</span>
                       <span className="font-mono text-white text-[9px] truncate max-w-[140px]">{s._id}</span>

@@ -29,7 +29,7 @@ export function DeleteConfirmationModal({
                         initial={{ scale: 0.9, opacity: 0, y: 20 }}
                         animate={{ scale: 1, opacity: 1, y: 0 }}
                         exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                        className="w-full max-w-[400px] bg-white dark:bg-zinc-900 rounded-[2.5rem] shadow-2xl border border-zinc-200 dark:border-zinc-800 relative z-10 overflow-hidden"
+                        className="w-full max-w-[400px] bg-white rounded-[2.5rem] shadow-2xl border border-slate-200 relative z-10 overflow-hidden"
                     >
                         {/* Header / Banner */}
                         <div className="h-2 bg-gradient-to-r from-rose-500 via-orange-500 to-rose-500 animate-gradient-x" />
@@ -43,7 +43,7 @@ export function DeleteConfirmationModal({
                                 </div>
 
                                 <div className="space-y-3">
-                                    <h3 className="text-2xl font-black uppercase tracking-tighter text-zinc-900 dark:text-white leading-tight">
+                                    <h3 className="text-2xl font-black uppercase tracking-tighter text-slate-900 leading-tight">
                                         {title}
                                     </h3>
                                     <p className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest leading-relaxed">

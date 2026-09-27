@@ -32,7 +32,7 @@ export function LoginView() {
   };
 
   return (
-    <div className="min-h-svh w-full bg-slate-950 text-white flex items-center justify-center p-4 relative overflow-x-hidden overflow-y-auto selection:bg-amber-500/30">
+    <div className="min-h-svh w-full bg-slate-100 text-slate-900 flex items-center justify-center p-4 relative overflow-x-hidden overflow-y-auto selection:bg-amber-500/30">
       {/* ─── 5-Image Real Perfume Dynamic Slider in Background (2s interval) ─── */}
       <AuthBackgroundSlider />
 
@@ -50,13 +50,13 @@ export function LoginView() {
         </div>
 
         {/* Glass Card */}
-        <div className="w-full bg-slate-950/85 backdrop-blur-2xl rounded-3xl shadow-[0_25px_70px_rgba(0,0,0,0.9)] p-6 sm:p-8 relative border border-slate-700/80 flex flex-col text-white">
+        <div className="w-full bg-white/95 backdrop-blur-2xl rounded-3xl shadow-xl p-6 sm:p-8 relative border border-slate-200 flex flex-col text-slate-900">
 
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-28 h-1.5 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-600 rounded-b-full shadow-[0_0_15px_rgba(245,158,11,0.9)]"></div>
 
           <div className="mb-5 text-center">
-            <h2 className="text-xl font-black text-white tracking-tight uppercase">Admin Sign In</h2>
-            <p className="text-slate-400 text-xs font-medium mt-0.5">Super Admin &amp; Shop Admin Login</p>
+            <h2 className="text-xl font-black text-slate-900 tracking-tight uppercase">Admin Sign In</h2>
+            <p className="text-slate-500 text-xs font-medium mt-0.5">Super Admin &amp; Shop Admin Login</p>
           </div>
 
           {(error || Object.keys(errors).length > 0) && (
@@ -71,7 +71,7 @@ export function LoginView() {
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-3.5 w-full">
             <div className="space-y-3">
               <div className="space-y-1">
-                <label className="text-[9px] font-black text-slate-300 uppercase tracking-widest pl-1">Username or Email</label>
+                <label className="text-[9px] font-black text-slate-600 uppercase tracking-widest pl-1">Username or Email</label>
                 <div className="relative group">
                   <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-amber-400 transition-colors" />
                   <input
@@ -84,7 +84,7 @@ export function LoginView() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[9px] font-black text-slate-300 uppercase tracking-widest pl-1">Password</label>
+                <label className="text-[9px] font-black text-slate-600 uppercase tracking-widest pl-1">Password</label>
                 <div className="relative group">
                   <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-amber-400 transition-colors" />
                   <input
@@ -114,8 +114,8 @@ export function LoginView() {
           </form>
 
           {/* Customer Portal Link */}
-          <div className="mt-5 pt-4 border-t border-slate-800 text-center">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
+          <div className="mt-5 pt-4 border-t border-slate-200 text-center">
+            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">
               Are you a Customer?
             </p>
             <Link
@@ -128,9 +128,9 @@ export function LoginView() {
           </div>
 
           {/* Secure Footer */}
-          <div className="mt-5 pt-3 border-t border-slate-800/80 flex items-center justify-center gap-1.5">
+          <div className="mt-5 pt-3 border-t border-slate-200 flex items-center justify-center gap-1.5">
             <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
-            <span className="text-[8.5px] font-bold text-slate-400 uppercase tracking-wider">
+            <span className="text-[8.5px] font-bold text-slate-500 uppercase tracking-wider">
               Protected &bull; Real-time Multi-tenant System
             </span>
           </div>
