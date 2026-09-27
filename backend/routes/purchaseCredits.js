@@ -68,15 +68,10 @@ router.get('/:id', async (req, res) => {
     if (!rows.length) return res.status(404).json({ success: false, message: 'Credit record not found' });
     const credit = { ...rows[0], _id: String(rows[0].id) };
 
-    const [payments] = await pool.query(
-      `SELECT * FROM purchase_credit_payments WHERE creditId = ? ORDER BY paymentDate DESC`,
-      [req.params.id]
-    );
-
     res.json({
       success: true,
       credit,
-      payments: payments.map(p => ({ ...p, _id: String(p.id) }))
+      payments: []
     });
   } catch (err) {
     console.error('Single purchase credit fetch error:', err);
@@ -124,19 +119,6 @@ router.post('/', async (req, res) => {
     ]);
 
     const creditId = result.insertId;
-
-    // If an initial payment was made, log it
-    if (paid > 0) {
-      await pool.query(`
-        INSERT INTO purchase_credit_payments (
-          creditId, shopId, supplierName, amountPaid, paymentMethod,
-          receiptNumber, paidBy, notes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `, [
-        creditId, shopId, supplierName.trim(), paid, req.body.paymentMethod || 'CASH',
-        `VOUCH-${Date.now().toString().slice(-6)}`, createdBy, 'Initial payment at bill entry'
-      ]);
-    }
 
     const [created] = await pool.query(`SELECT * FROM purchase_credits WHERE id = ?`, [creditId]);
 
@@ -186,18 +168,7 @@ router.post('/:id/payment', async (req, res) => {
     const newStatus = newDueBalance === 0 ? 'PAID' : 'PARTIAL';
     const vouchNo = receiptNumber || `VOUCH-${Date.now().toString().slice(-6)}`;
 
-    // 1. Record payment history
-    await pool.query(`
-      INSERT INTO purchase_credit_payments (
-        creditId, shopId, supplierName, amountPaid, paymentMethod,
-        receiptNumber, transactionId, paidBy, notes
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [
-      id, credit.shopId, credit.supplierName, payAmt, paymentMethod,
-      vouchNo, transactionId, paidBy, notes
-    ]);
-
-    // 2. Update purchase_credits record
+    // Update purchase_credits record
     await pool.query(`
       UPDATE purchase_credits
       SET amountPaid = ?, dueBalance = ?, status = ?
@@ -225,13 +196,12 @@ router.post('/:id/payment', async (req, res) => {
     }
 
     const [updated] = await pool.query(`SELECT * FROM purchase_credits WHERE id = ?`, [id]);
-    const [payments] = await pool.query(`SELECT * FROM purchase_credit_payments WHERE creditId = ? ORDER BY paymentDate DESC`, [id]);
 
     res.json({
       success: true,
       message: `Supplier payment of Rs. ${payAmt.toLocaleString()} recorded successfully!`,
       credit: { ...updated[0], _id: String(updated[0].id) },
-      payments: payments.map(p => ({ ...p, _id: String(p.id) }))
+      payments: []
     });
   } catch (err) {
     console.error('Supplier payment record error:', err);
@@ -276,18 +246,6 @@ router.post('/sync/:shopId', async (req, res) => {
           status, `Synced from Purchase #${p.id} (${p.productName || 'Stock'})`, p.createdBy || 'Shop Admin'
         ]);
 
-        if (paid > 0) {
-          await pool.query(`
-            INSERT INTO purchase_credit_payments (
-              creditId, shopId, supplierName, amountPaid, paymentMethod,
-              receiptNumber, paidBy, notes
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-          `, [
-            ins.insertId, shopId, p.supplierName || 'General Supplier', paid,
-            p.paymentMethod || 'CASH', `VOUCH-INIT-${p.id}`,
-            p.createdBy || 'Shop Admin', 'Initial payment recorded during purchase'
-          ]);
-        }
         syncedCount++;
       }
     }
@@ -307,7 +265,6 @@ router.post('/sync/:shopId', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    await pool.query(`DELETE FROM purchase_credit_payments WHERE creditId = ?`, [id]);
     const [result] = await pool.query(`DELETE FROM purchase_credits WHERE id = ?`, [id]);
     if (result.affectedRows === 0) {
       return res.status(404).json({ success: false, message: 'Credit record not found' });

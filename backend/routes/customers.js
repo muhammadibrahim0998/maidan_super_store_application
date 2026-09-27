@@ -26,22 +26,66 @@ const authenticateCustomer = async (req, res, next) => {
 
 import mongoose from 'mongoose';
 import { resolveShopId } from '../utils/shopResolver.js';
+import { findOrCreateCustomer, syncCustomersFromSales } from '../utils/customerHelper.js';
+import { pool } from '../config/mysql.js';
 
-// ─── GET ALL CUSTOMERS (FOR ADMIN DASHBOARD) ──────────────────────────────────
+// ─── GET ALL CUSTOMERS (FOR ADMIN DASHBOARD & REGISTERED CUSTOMERS DIRECTORY) ───
 router.get('/all', async (req, res) => {
   try {
-    const { shopId } = req.query;
+    const { shopId, sync } = req.query;
     let filter = {};
+    let resolved = null;
     if (shopId) {
-      const resolved = await resolveShopId(shopId);
+      resolved = await resolveShopId(shopId);
       if (resolved) {
         filter = { shopId: resolved };
+      }
+    }
+    // If sync requested or on demand, auto-sync from sales table
+    if (sync === 'true' || sync === '1') {
+      try {
+        await syncCustomersFromSales(resolved || 1);
+      } catch (syncErr) {
+        console.warn('Auto sync warning:', syncErr);
       }
     }
     const customers = await Customer.find(filter).select('-password');
     res.json({ success: true, count: customers.length, customers });
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+});
+
+// ─── DYNAMIC API: FIND OR REGISTER CUSTOMER FROM POS / FRONTEND ─────────────────
+router.post('/find-or-create', async (req, res) => {
+  try {
+    const { shopId = 1, fullName, phone, email, address, customerId } = req.body;
+    const resolvedShopId = await resolveShopId(shopId);
+    const result = await findOrCreateCustomer({
+      shopId: resolvedShopId || 1,
+      customerName: fullName,
+      customerPhone: phone,
+      customerEmail: email,
+      customerAddress: address,
+      customerId
+    });
+    res.json({ success: true, ...result });
+  } catch (err) {
+    console.error('Find or create customer error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ─── DYNAMIC API: SYNC ALL PAST & PRESENT SALES CUSTOMERS INTO MYSQL TABLE ──────
+router.post('/sync-sales', async (req, res) => {
+  try {
+    const rawShopId = req.query.shopId || req.body.shopId || 1;
+    const resolved = await resolveShopId(rawShopId);
+    const result = await syncCustomersFromSales(resolved || 1);
+    res.json(result);
+  } catch (err) {
+    console.error('Sync sales customers error:', err);
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
@@ -354,18 +398,45 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// ─── DELETE CUSTOMER (ADMIN ONLY) ─────────────────────────────────────────────
+// ─── DELETE CUSTOMER (ADMIN ONLY - CASCADES TO SALES & ORDERS) ───────────────
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     if (!id || id === 'undefined' || id === 'null') {
       return res.status(400).json({ message: 'Invalid customer ID' });
     }
-    const customer = await Customer.findByIdAndDelete(id);
-    if (!customer) {
+
+    // 1. Get customer details before deletion
+    const [custRows] = await pool.query('SELECT * FROM customers WHERE id = ?', [id]);
+    if (!custRows.length) {
       return res.status(404).json({ message: 'Customer not found' });
     }
-    res.json({ success: true, message: 'Customer account deleted successfully' });
+    const cust = custRows[0];
+
+    // 2. Delete all customer sales from sales table
+    await pool.query(`
+      DELETE FROM sales 
+      WHERE customerId = ? 
+         OR (customerEmail = ? AND customerEmail != '') 
+         OR (customerName = ? AND customerName != '' AND shopId = ?)
+    `, [id, cust.email || '', cust.fullName || '', cust.shopId || 1]);
+
+    // 3. Delete all customer orders from orders table
+    await pool.query('DELETE FROM orders WHERE customerId = ?', [id]);
+
+    // 4. Delete all customer easypaisa orders
+    await pool.query('DELETE FROM easypaisa_orders WHERE customerId = ?', [id]);
+
+    // 5. Delete all customer credits
+    await pool.query('DELETE FROM customer_credits WHERE customerId = ?', [id]);
+
+    // 6. Delete customer record
+    await pool.query('DELETE FROM customers WHERE id = ?', [id]);
+
+    res.json({
+      success: true,
+      message: `Customer "${cust.fullName}" and all associated sales and order records permanently deleted.`
+    });
   } catch (err) {
     console.error('Delete customer error:', err);
     res.status(500).json({ message: err.message });

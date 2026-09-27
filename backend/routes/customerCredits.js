@@ -68,15 +68,10 @@ router.get('/:id', async (req, res) => {
     if (!rows.length) return res.status(404).json({ success: false, message: 'Credit record not found' });
     const credit = { ...rows[0], _id: String(rows[0].id) };
 
-    const [payments] = await pool.query(
-      `SELECT * FROM customer_credit_payments WHERE creditId = ? ORDER BY paymentDate DESC`,
-      [req.params.id]
-    );
-
     res.json({
       success: true,
       credit,
-      payments: payments.map(p => ({ ...p, _id: String(p.id) }))
+      payments: []
     });
   } catch (err) {
     console.error('Single customer credit fetch error:', err);
@@ -126,19 +121,6 @@ router.post('/', async (req, res) => {
 
     const creditId = result.insertId;
 
-    // If an initial payment was made, log it in payments table
-    if (paid > 0) {
-      await pool.query(`
-        INSERT INTO customer_credit_payments (
-          creditId, shopId, customerName, amountPaid, paymentMethod,
-          receiptNumber, receivedBy, notes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `, [
-        creditId, shopId, customerName.trim(), paid, req.body.paymentMethod || 'CASH',
-        `REC-${Date.now().toString().slice(-6)}`, createdBy, 'Initial payment at credit creation'
-      ]);
-    }
-
     const [created] = await pool.query(`SELECT * FROM customer_credits WHERE id = ?`, [creditId]);
 
     res.status(201).json({
@@ -187,18 +169,7 @@ router.post('/:id/payment', async (req, res) => {
     const newStatus = newDueBalance === 0 ? 'PAID' : 'PARTIAL';
     const recNo = receiptNumber || `REC-${Date.now().toString().slice(-6)}`;
 
-    // 1. Record payment history
-    await pool.query(`
-      INSERT INTO customer_credit_payments (
-        creditId, shopId, customerName, amountPaid, paymentMethod,
-        receiptNumber, transactionId, receivedBy, notes
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [
-      id, credit.shopId, credit.customerName, payAmt, paymentMethod,
-      recNo, transactionId, receivedBy, notes
-    ]);
-
-    // 2. Update credit record
+    // Update credit record
     await pool.query(`
       UPDATE customer_credits
       SET amountPaid = ?, dueBalance = ?, status = ?
@@ -226,13 +197,12 @@ router.post('/:id/payment', async (req, res) => {
     }
 
     const [updated] = await pool.query(`SELECT * FROM customer_credits WHERE id = ?`, [id]);
-    const [payments] = await pool.query(`SELECT * FROM customer_credit_payments WHERE creditId = ? ORDER BY paymentDate DESC`, [id]);
 
     res.json({
       success: true,
       message: `Payment of Rs. ${payAmt.toLocaleString()} recorded successfully!`,
       credit: { ...updated[0], _id: String(updated[0].id) },
-      payments: payments.map(p => ({ ...p, _id: String(p.id) }))
+      payments: []
     });
   } catch (err) {
     console.error('Payment record error:', err);
@@ -277,18 +247,6 @@ router.post('/sync/:shopId', async (req, res) => {
           status, `Synced from POS Sale #${sale.id}`, sale.cashierName || 'Shop Admin'
         ]);
 
-        if (paid > 0) {
-          await pool.query(`
-            INSERT INTO customer_credit_payments (
-              creditId, shopId, customerName, amountPaid, paymentMethod,
-              receiptNumber, receivedBy, notes
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-          `, [
-            ins.insertId, shopId, sale.customerName || 'Walk-in Customer', paid,
-            sale.paymentMethod || 'CASH', `REC-INIT-${sale.id}`,
-            sale.cashierName || 'Shop Admin', 'Initial payment from sale'
-          ]);
-        }
         syncedCount++;
       }
     }
@@ -308,7 +266,6 @@ router.post('/sync/:shopId', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    await pool.query(`DELETE FROM customer_credit_payments WHERE creditId = ?`, [id]);
     const [result] = await pool.query(`DELETE FROM customer_credits WHERE id = ?`, [id]);
     if (result.affectedRows === 0) {
       return res.status(404).json({ success: false, message: 'Credit record not found' });

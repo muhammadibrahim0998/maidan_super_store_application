@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   Search, ShoppingBag, MapPin, Phone, Package,
   ChevronDown, X, ArrowLeft, ShoppingCart,
-  Plus, Minus, Trash2, User, Lock, Mail, LogOut, Eye, EyeOff,
+  Plus, Minus, Trash2, User, UserPlus, Lock, Mail, LogOut, Eye, EyeOff,
   CheckCircle, CheckCircle2, AlertCircle, Sparkles, UserCircle2, Store,
   Layers, ShoppingBasket, Shirt, Home, Watch, Smartphone, Footprints,
   Menu, Filter, HelpCircle, LayoutDashboard,
@@ -494,6 +494,7 @@ function StoreContent({ shopId }) {
   const [walkInCart, setWalkInCart] = useState([]);
   const [walkInCustomerName, setWalkInCustomerName] = useState('');
   const [walkInCustomerPhone, setWalkInCustomerPhone] = useState('');
+  const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
   const [walkInPaymentMethod, setWalkInPaymentMethod] = useState('CASH');
   const [walkInPaidAmount, setWalkInPaidAmount] = useState('');
   const [walkInPartialDestination, setWalkInPartialDestination] = useState('CASH'); // 'CASH' | 'BANK'
@@ -625,14 +626,20 @@ function StoreContent({ shopId }) {
     }
   };
 
-  const handleDeleteSale = async (saleId) => {
+  const handleDeleteSale = async (saleOrId) => {
+    const saleId = typeof saleOrId === 'object' ? (saleOrId._id || saleOrId.id || saleOrId.orderId) : saleOrId;
+    const saleObj = typeof saleOrId === 'object' ? saleOrId : null;
     if (!saleId) return;
-    if (!window.confirm('Are you sure you want to permanently delete this sale record from the database? This cannot be undone.')) {
+
+    const invoiceName = saleObj?.invoiceNumber || (saleObj?.orderId ? `Order #${saleObj.orderId}` : `Record #${saleId}`);
+    const custName = saleObj?.customerName ? ` for "${saleObj.customerName}"` : '';
+
+    if (!window.confirm(`Are you sure you want to permanently delete ${invoiceName}${custName}? This will delete the record and update the customer directory.`)) {
       return;
     }
     try {
       const token = localStorage.getItem('nexflow_token') || sessionStorage.getItem('nexflow_token');
-      const res = await fetch(`/api/sales/${saleId}`, {
+      const res = await fetch(`/api/sales/${saleId}?deleteCustomer=true`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -641,20 +648,20 @@ function StoreContent({ shopId }) {
         }
       });
       if (res.ok) {
-        setAddedMsg('Sale record permanently deleted from database!');
+        setAddedMsg('Record permanently deleted from database!');
         setTimeout(() => setAddedMsg(''), 3000);
         setShopSalesList(prev => prev.filter(s => String(s._id || s.id || s.orderId) !== String(saleId)));
         setAllShopOrders(prev => prev.filter(o => String(o._id || o.id) !== String(saleId)));
-        fetchShopSales();
-        fetchRegisteredCustomers();
-        fetchDashboardStats();
+        await fetchShopSales();
+        await fetchRegisteredCustomers();
+        await fetchDashboardStats();
       } else {
         const errData = await res.json().catch(() => ({}));
-        alert(errData.message || 'Failed to delete sale record from database');
+        alert(errData.message || 'Failed to delete record from database');
       }
     } catch (err) {
       console.error('Delete sale error:', err);
-      alert('Error deleting sale record from database');
+      alert('Error deleting record from database');
     }
   };
 
@@ -663,7 +670,7 @@ function StoreContent({ shopId }) {
     setLoadingCustomers(true);
     try {
       const [custRes, salesData, ordersData] = await Promise.all([
-        fetch(`/api/customers/all?shopId=${shopId}`).then(r => r.ok ? r.json() : { customers: [] }),
+        fetch(`/api/customers/all?shopId=${shopId}&sync=true`).then(r => r.ok ? r.json() : { customers: [] }),
         getSales(shopId).catch(() => []),
         getShopOrders({ shopId }).catch(() => ({ orders: [] }))
       ]);
@@ -681,6 +688,27 @@ function StoreContent({ shopId }) {
       setAllShopOrders(shopFilteredOrders);
     } catch (err) {
       console.error("Fetch registered customers error:", err);
+    } finally {
+      setLoadingCustomers(false);
+    }
+  };
+
+  const handleSyncSalesCustomers = async () => {
+    if (!shopId) return;
+    setLoadingCustomers(true);
+    try {
+      const res = await fetch(`/api/customers/sync-sales?shopId=${shopId}`, { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        setAddedMsg(`✅ Synced ${data.syncedSales || 0} POS bills with Customer Directory!`);
+        setTimeout(() => setAddedMsg(''), 3500);
+        await fetchRegisteredCustomers();
+      } else {
+        alert(data.message || 'Failed to sync sales with customers');
+      }
+    } catch (err) {
+      console.error('Sync sales error:', err);
+      alert('Error syncing customers from sales');
     } finally {
       setLoadingCustomers(false);
     }
@@ -1455,7 +1483,7 @@ function StoreContent({ shopId }) {
   };
 
   const handleDeleteCustomer = async (customerId, customerName) => {
-    if (!window.confirm(`Are you sure you want to permanently delete customer account "${customerName || 'Customer'}"? This action cannot be undone.`)) {
+    if (!window.confirm(`Are you sure you want to permanently delete customer account "${customerName || 'Customer'}"? This action will also delete all their sales and order records from the database.`)) {
       return;
     }
     try {
@@ -1463,9 +1491,14 @@ function StoreContent({ shopId }) {
         method: 'DELETE'
       });
       if (res.ok) {
-        setAddedMsg(`Customer account deleted successfully!`);
+        setAddedMsg(`Customer account and all associated sales records permanently deleted!`);
         setTimeout(() => setAddedMsg(''), 3000);
-        setRegisteredCustomersList(prev => prev.filter(c => c._id !== customerId));
+        setRegisteredCustomersList(prev => prev.filter(c => String(c._id || c.id) !== String(customerId)));
+        setShopSalesList(prev => prev.filter(s => String(s.customerId || s.userId || '') !== String(customerId)));
+        setAllShopOrders(prev => prev.filter(o => String(o.customerId?._id || o.customerId || '') !== String(customerId)));
+        await fetchShopSales();
+        await fetchRegisteredCustomers();
+        await fetchDashboardStats();
       } else {
         const data = await res.json().catch(() => ({}));
         alert(data.message || 'Failed to delete customer.');
@@ -1752,6 +1785,7 @@ function StoreContent({ shopId }) {
       await fetchCatalog();
       await fetchDashboardStats();
       await fetchShopSales();
+      await fetchRegisteredCustomers();
     } catch (err) {
       alert(err.message || 'Failed to complete sale');
     } finally {
@@ -5724,14 +5758,76 @@ function StoreContent({ shopId }) {
                         <div className="p-4 space-y-4 flex-1">
                           {/* Customer Details */}
                           <div className="space-y-2">
-                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Customer Details</p>
-                            <input
-                              type="text"
-                              placeholder="Customer Name (e.g. Ahmad Khan)"
-                              value={walkInCustomerName}
-                              onChange={e => setWalkInCustomerName(e.target.value)}
-                              className="w-full bg-gray-50 border border-gray-300 rounded-xl px-3 py-2 text-xs font-bold text-gray-800 outline-none focus:border-emerald-500 transition-colors"
-                            />
+                            <div className="flex items-center justify-between">
+                              <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest flex items-center gap-1">
+                                <Users className="w-3 h-3 text-emerald-600" /> Customer Details
+                              </p>
+                              <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                                Auto-Registers in MySQL
+                              </span>
+                            </div>
+
+                            {/* Autocomplete / Existing Customer Match */}
+                            <div className="relative">
+                              <input
+                                type="text"
+                                placeholder="Customer Name (e.g. Ahmad Khan)"
+                                value={walkInCustomerName}
+                                onChange={e => {
+                                  setWalkInCustomerName(e.target.value);
+                                  setShowCustomerSuggestions(true);
+                                }}
+                                onFocus={() => setShowCustomerSuggestions(true)}
+                                className="w-full bg-gray-50 border border-gray-300 rounded-xl px-3 py-2 text-xs font-bold text-gray-800 outline-none focus:border-emerald-500 transition-colors"
+                              />
+
+                              {/* Customer Quick Suggestions dropdown */}
+                              {showCustomerSuggestions && walkInCustomerName.trim().length > 0 && (
+                                (() => {
+                                  const searchQ = walkInCustomerName.trim().toLowerCase();
+                                  const matches = (registeredCustomersList || []).filter(c => 
+                                    (c.fullName && c.fullName.toLowerCase().includes(searchQ)) ||
+                                    (c.phone && c.phone.includes(searchQ))
+                                  ).slice(0, 5);
+
+                                  if (matches.length === 0) return null;
+
+                                  return (
+                                    <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-emerald-300 rounded-xl shadow-xl z-30 max-h-48 overflow-y-auto divide-y divide-gray-100 animate-in fade-in duration-150">
+                                      <div className="px-3 py-1.5 bg-emerald-50 text-[9.5px] font-black text-emerald-800 uppercase tracking-wider flex items-center justify-between">
+                                        <span>Existing Registered Customers</span>
+                                        <button 
+                                          type="button" 
+                                          onClick={() => setShowCustomerSuggestions(false)}
+                                          className="text-gray-400 hover:text-gray-700 cursor-pointer"
+                                        >✕</button>
+                                      </div>
+                                      {matches.map(cust => (
+                                        <button
+                                          key={cust._id || cust.id}
+                                          type="button"
+                                          onClick={() => {
+                                            setWalkInCustomerName(cust.fullName || '');
+                                            if (cust.phone) setWalkInCustomerPhone(cust.phone);
+                                            setShowCustomerSuggestions(false);
+                                          }}
+                                          className="w-full text-left px-3 py-2 hover:bg-emerald-50/70 transition-colors flex items-center justify-between gap-2 cursor-pointer text-xs"
+                                        >
+                                          <div>
+                                            <p className="font-black text-gray-900 uppercase text-xs">{cust.fullName}</p>
+                                            <p className="text-[10px] text-gray-500 font-mono">{cust.phone || cust.email || 'No phone'}</p>
+                                          </div>
+                                          <span className="text-[9px] font-extrabold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                                            Select
+                                          </span>
+                                        </button>
+                                      ))}
+                                    </div>
+                                  );
+                                })()
+                              )}
+                            </div>
+
                             <input
                               type="tel"
                               placeholder="WhatsApp / Phone (03XXXXXXXXX)"
@@ -5739,6 +5835,32 @@ function StoreContent({ shopId }) {
                               onChange={e => setWalkInCustomerPhone(e.target.value)}
                               className="w-full bg-gray-50 border border-gray-300 rounded-xl px-3 py-2 text-xs font-bold text-gray-800 outline-none focus:border-emerald-500 font-mono transition-colors"
                             />
+
+                            {/* Live Badge whether matched or will be newly created */}
+                            {walkInCustomerName.trim().length > 0 && (
+                              (() => {
+                                const qName = walkInCustomerName.trim().toLowerCase();
+                                const isExisting = (registeredCustomersList || []).some(c => 
+                                  (c.fullName && c.fullName.toLowerCase() === qName) ||
+                                  (walkInCustomerPhone.trim() && c.phone && c.phone.replace(/\D/g, '') === walkInCustomerPhone.trim().replace(/\D/g, ''))
+                                );
+
+                                if (isExisting) {
+                                  return (
+                                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 border border-emerald-200 rounded-lg text-[10px] font-bold text-emerald-800">
+                                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                      <span>Registered Customer • Sales & ledger linked</span>
+                                    </div>
+                                  );
+                                }
+                                return (
+                                  <div className="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 border border-indigo-200 rounded-lg text-[10px] font-bold text-indigo-800">
+                                    <UserPlus className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                                    <span>New Customer • Will be auto-registered in MySQL & Directory</span>
+                                  </div>
+                                );
+                              })()
+                            )}
                           </div>
 
                           {/* Payment Method - 4 Options: Cash, Bank, Split/Partial, Credit */}
@@ -6232,13 +6354,24 @@ function StoreContent({ shopId }) {
                       </p>
                     </div>
 
-                    <button
-                      onClick={fetchRegisteredCustomers}
-                      className="w-full sm:w-auto px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95 cursor-pointer shrink-0"
-                    >
-                      <RefreshCw className="w-4 h-4" />
-                      <span>Refresh Customers List</span>
-                    </button>
+                    <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
+                      <button
+                        onClick={handleSyncSalesCustomers}
+                        className="flex-1 sm:flex-initial px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95 cursor-pointer shrink-0"
+                        title="Sync all walk-in and credit bills into registered customers directory"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                        <span>Sync POS Bills</span>
+                      </button>
+
+                      <button
+                        onClick={fetchRegisteredCustomers}
+                        className="flex-1 sm:flex-initial px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95 cursor-pointer shrink-0"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                        <span>Refresh List</span>
+                      </button>
+                    </div>
                   </div>
 
                   <div className="bg-white border border-gray-200 rounded-2xl sm:rounded-3xl overflow-visible shadow-sm">
@@ -7110,7 +7243,7 @@ function StoreContent({ shopId }) {
                                         </button>
                                         <button
                                           type="button"
-                                          onClick={() => handleDeleteSale(s._id || s.id || s.orderId)}
+                                          onClick={() => handleDeleteSale(s)}
                                           className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg transition-all cursor-pointer"
                                           title="Delete Sale"
                                         >
@@ -7259,7 +7392,7 @@ function StoreContent({ shopId }) {
                                             </button>
                                             <button
                                               type="button"
-                                              onClick={() => handleDeleteSale(s._id || s.id || s.orderId)}
+                                              onClick={() => handleDeleteSale(s)}
                                               className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg transition-all cursor-pointer"
                                               title="Delete Sale"
                                             >

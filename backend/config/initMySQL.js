@@ -83,8 +83,8 @@ export async function initMySQLTables(forceRecreate = false) {
     CREATE TABLE IF NOT EXISTS customers (
       id INT AUTO_INCREMENT PRIMARY KEY,
       fullName VARCHAR(255) NOT NULL,
-      email VARCHAR(255) NOT NULL UNIQUE,
-      password VARCHAR(255) NOT NULL,
+      email VARCHAR(255) DEFAULT NULL,
+      password VARCHAR(255) DEFAULT NULL,
       phone VARCHAR(50) DEFAULT '',
       address TEXT,
       shopId INT DEFAULT 1,
@@ -350,27 +350,7 @@ export async function initMySQLTables(forceRecreate = false) {
       INDEX idx_customer_credits_name (customerName)
     ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
   `);
-
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS customer_credit_payments (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      creditId INT NOT NULL,
-      shopId INT DEFAULT 1,
-      customerName VARCHAR(255) DEFAULT '',
-      amountPaid DECIMAL(14,2) NOT NULL,
-      paymentMethod VARCHAR(50) DEFAULT 'CASH',
-      receiptNumber VARCHAR(100) DEFAULT '',
-      transactionId VARCHAR(255) DEFAULT '',
-      paymentDate DATETIME DEFAULT CURRENT_TIMESTAMP,
-      receivedBy VARCHAR(255) DEFAULT 'Shop Admin',
-      notes TEXT DEFAULT NULL,
-      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-      INDEX idx_cc_payments_credit (creditId),
-      INDEX idx_cc_payments_shop (shopId)
-    ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-  `);
-
-  // 14. Purchase Credits & Purchase Credit Payments Tables
+  // 14. Purchase Credits Table
   await pool.query(`
     CREATE TABLE IF NOT EXISTS purchase_credits (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -395,26 +375,6 @@ export async function initMySQLTables(forceRecreate = false) {
       INDEX idx_purchase_credits_supplier (supplierName)
     ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
   `);
-
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS purchase_credit_payments (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      creditId INT NOT NULL,
-      shopId INT DEFAULT 1,
-      supplierName VARCHAR(255) DEFAULT '',
-      amountPaid DECIMAL(14,2) NOT NULL,
-      paymentMethod VARCHAR(50) DEFAULT 'CASH',
-      receiptNumber VARCHAR(100) DEFAULT '',
-      transactionId VARCHAR(255) DEFAULT '',
-      paymentDate DATETIME DEFAULT CURRENT_TIMESTAMP,
-      paidBy VARCHAR(255) DEFAULT 'Shop Admin',
-      notes TEXT DEFAULT NULL,
-      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-      INDEX idx_pc_payments_credit (creditId),
-      INDEX idx_pc_payments_shop (shopId)
-    ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-  `);
-
   // Seed Default Super Admin and Default Shop if not present
   try {
     const [superAdmins] = await pool.query(`SELECT id FROM users WHERE role = 'super_admin' LIMIT 1`);

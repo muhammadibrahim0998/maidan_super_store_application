@@ -15,6 +15,8 @@ const __dirname = path.dirname(__filename);
 import Settings from '../models/Settings.js';
 import { authenticate, requireShopAdmin, preventSuperAdmin } from '../middleware/auth.js';
 import { resolveShopId } from '../utils/shopResolver.js';
+import { pool } from '../config/mysql.js';
+import { findOrCreateCustomer } from '../utils/customerHelper.js';
 
 // Helper to verify Owner Password (Anti-Theft)
 // We now use `authenticate` and `requireShopAdmin` standard RBAC for powerful actions
@@ -133,6 +135,33 @@ const createSaleRecord = async (req, res, explicitPaymentData = {}) => {
 
     const paymentReceipt = req.body.paymentReceipt || req.body.paymentProof || explicitPaymentData.paymentReceipt || '';
 
+    // Dynamic Customer Registration / Lookup for MySQL customers table
+    let resolvedCustomerId = null;
+    let resolvedCustomerEmail = req.body.customerEmail || '';
+    let resolvedCustomerPhone = req.body.customerPhone || '';
+    let resolvedCustomerName = customerName || (isCredit ? "Credit Customer" : "Walk-in Customer");
+    let customerObj = null;
+
+    try {
+      const custResult = await findOrCreateCustomer({
+        shopId: targetShopId,
+        customerName: customerName || req.body.customerName,
+        customerPhone: req.body.customerPhone,
+        customerEmail: req.body.customerEmail,
+        customerAddress: req.body.customerAddress,
+        customerId: req.body.customerId
+      });
+      if (custResult?.customerId) {
+        resolvedCustomerId = custResult.customerId;
+        customerObj = custResult.customer;
+        if (custResult.customer?.email) resolvedCustomerEmail = custResult.customer.email;
+        if (custResult.customer?.phone) resolvedCustomerPhone = custResult.customer.phone;
+        if (custResult.customer?.fullName) resolvedCustomerName = custResult.customer.fullName;
+      }
+    } catch (custErr) {
+      console.warn('Customer resolution warning in createSaleRecord:', custErr);
+    }
+
     // Generate unique serial number (starting from 1)
     const existingCount = await Sale.countDocuments({ shopId: targetShopId });
     const serialNumber = 1 + existingCount;
@@ -140,14 +169,16 @@ const createSaleRecord = async (req, res, explicitPaymentData = {}) => {
 
     const sale = new Sale({
       shopId: targetShopId,
+      customerId: resolvedCustomerId,
+      customerEmail: resolvedCustomerEmail,
       items,
       totalAmount: totalAmt,
       totalProfit: Number(totalProfit) || 0,
       serialNumber,
       invoiceNumber,
       cashierName: cashierName || req.user?.fullName || "Shop Admin",
-      customerName: customerName || (isCredit ? "Credit Customer" : "Walk-in Customer"),
-      customerPhone: req.body.customerPhone || "",
+      customerName: resolvedCustomerName,
+      customerPhone: resolvedCustomerPhone,
       paymentMethod: method,
       cashPaid,
       bankPaid,
@@ -188,7 +219,36 @@ const createSaleRecord = async (req, res, explicitPaymentData = {}) => {
     
     const newSale = await sale.save();
 
-    // 4. Update active CashSession (Anti-Theft / Reporting)
+    // 4. If credit / partial, auto sync into customer_credits table
+    if (dueAmount > 0 || isCredit) {
+      try {
+        const creditStatus = dueAmount === 0 ? 'PAID' : (cashPaid > 0 || bankPaid > 0 ? 'PARTIAL' : 'PENDING');
+        const [credIns] = await pool.query(`
+          INSERT INTO customer_credits (
+            shopId, customerId, customerName, customerPhone, saleId,
+            invoiceNumber, totalCredit, amountPaid, dueBalance,
+            creditDate, status, notes, createdBy
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?, ?)
+        `, [
+          targetShopId,
+          resolvedCustomerId,
+          resolvedCustomerName,
+          resolvedCustomerPhone,
+          newSale._id || newSale.id,
+          invoiceNumber,
+          totalAmt,
+          cashPaid + bankPaid,
+          dueAmount,
+          creditStatus,
+          `POS Bill #${invoiceNumber}`,
+          cashierName || req.user?.fullName || 'Shop Admin'
+        ]);
+      } catch (credErr) {
+        console.warn('Auto customer_credit record warning:', credErr);
+      }
+    }
+
+    // 5. Update active CashSession (Anti-Theft / Reporting)
     if (cashPaid > 0) {
       const activeSession = await CashSession.findOne({ status: 'open' });
       if (activeSession) {
@@ -198,7 +258,7 @@ const createSaleRecord = async (req, res, explicitPaymentData = {}) => {
       }
     }
 
-    // 5. Generate PDF Invoice
+    // 6. Generate PDF Invoice
     const fileName = `invoice-${newSale._id}.pdf`;
     const invoicesDir = path.join(__dirname, '..', 'invoices');
     if (!fs.existsSync(invoicesDir)) {
@@ -208,13 +268,14 @@ const createSaleRecord = async (req, res, explicitPaymentData = {}) => {
     
     try {
       await generateInvoice(newSale, filePath, settings);
-      // Attach invoice URL to response
+      // Attach invoice URL & customer object to response
       const responseData = newSale.toObject();
       responseData.invoiceUrl = `/invoices/${fileName}`;
+      responseData.customer = customerObj;
       res.status(201).json(responseData);
     } catch (pdfErr) {
       console.error("PDF Generation failed:", pdfErr);
-      res.status(211).json({ ...newSale.toObject(), message: "Sale created but PDF failed" });
+      res.status(211).json({ ...newSale.toObject(), customer: customerObj, message: "Sale created but PDF failed" });
     }
   } catch (err) {
     res.status(400).json({ message: err.message });
@@ -416,83 +477,134 @@ router.put('/:id', authenticate, preventSuperAdmin, verifyOwnerPassword, async (
   }
 });
 
-// Delete a sale permanently from database (both Sale and Order if exists)
+// Delete a sale permanently from database (both Sale, Order, and Customer sync)
 router.delete('/:id', authenticate, requireShopAdmin, async (req, res) => {
   try {
-    const targetId = req.params.id;
-    if (!targetId) {
+    const rawTargetId = String(req.params.id || '').trim();
+    if (!rawTargetId) {
       return res.status(400).json({ message: 'Target ID is required' });
     }
 
-    const isValidObjId = mongoose.Types.ObjectId.isValid(targetId);
-    let saleQuery = [];
-    if (isValidObjId) {
-      saleQuery.push({ _id: targetId });
-      saleQuery.push({ orderId: targetId });
-    }
-    saleQuery.push({ invoiceNumber: targetId });
+    const cleanDigitId = rawTargetId.replace(/^ORD-/, '').replace(/^INV-/, '').replace(/\D/g, '');
+    const numId = cleanDigitId ? Number(cleanDigitId) : 0;
+    const { deleteCustomer } = req.query;
 
-    // 1. Find all matching sales
-    const matchingSales = await Sale.find({ $or: saleQuery });
+    // 1. Find matching sales in MySQL
+    const [matchingSales] = await pool.query(`
+      SELECT * FROM sales 
+      WHERE id = ? OR id = ? OR orderId = ? OR invoiceNumber = ? OR invoiceNumber = ?
+    `, [rawTargetId, numId, numId, rawTargetId, `INV-${String(numId).padStart(5, '0')}`]);
 
+    // 2. Find matching orders in MySQL
+    const [matchingOrders] = await pool.query(`
+      SELECT * FROM orders 
+      WHERE id = ? OR id = ?
+    `, [rawTargetId, numId]);
+
+    // 3. Find matching easypaisa orders in MySQL
+    const [matchingEpOrders] = await pool.query(`
+      SELECT * FROM easypaisa_orders 
+      WHERE id = ? OR id = ?
+    `, [rawTargetId, numId]);
+
+    const affectedCustomerIds = new Set();
+
+    // Reverse stock & delete sales
     for (const sale of matchingSales) {
-      const amountToDeduct = Number(sale.totalAmount) || 0;
+      if (sale.customerId) affectedCustomerIds.add(sale.customerId);
 
-      // Reverse stock
-      for (const item of (sale.items || [])) {
+      let items = [];
+      try {
+        items = typeof sale.items === 'string' ? JSON.parse(sale.items || '[]') : (sale.items || []);
+      } catch (e) { }
+
+      for (const item of items) {
         if (item.productId) {
           try {
-            await Item.findByIdAndUpdate(item.productId, {
-              $inc: { stock: Number(item.quantity) || 1 },
-              lastUpdated: new Date().toISOString().split('T')[0]
-            });
+            await pool.query(
+              `UPDATE items SET stock = stock + ? WHERE id = ?`,
+              [Number(item.quantity) || 1, item.productId]
+            );
           } catch (e) { }
         }
       }
 
-      await Sale.findByIdAndDelete(sale._id);
-
-      // Delete associated Invoice PDF if it exists
-      const fileName = `invoice-${sale._id}.pdf`;
+      // Delete linked invoice file
+      const fileName = `invoice-${sale.id}.pdf`;
       const filePath = path.join(__dirname, '..', 'invoices', fileName);
       if (fs.existsSync(filePath)) {
-        try {
-          fs.unlinkSync(filePath);
-        } catch (fileErr) { }
+        try { fs.unlinkSync(filePath); } catch (fileErr) { }
       }
 
-      // Update active CashSession
-      const activeSession = await CashSession.findOne({ status: 'open' });
-      if (activeSession) {
-        activeSession.totalSales = Math.max(0, (activeSession.totalSales || 0) - amountToDeduct);
-        activeSession.expectedCash = Math.max(0, (activeSession.expectedCash || 0) - amountToDeduct);
-        await activeSession.save();
-      }
+      // Delete from customer_credits
+      await pool.query(`DELETE FROM customer_credits WHERE saleId = ?`, [sale.id]);
 
-      // Delete linked order if any
-      if (sale.orderId) {
-        try {
-          await Order.findByIdAndDelete(sale.orderId);
-        } catch (e) { }
-      }
+      // Delete from sales table
+      await pool.query(`DELETE FROM sales WHERE id = ?`, [sale.id]);
     }
 
-    // 2. Also delete directly from Order collection
-    if (isValidObjId) {
+    // Process matching orders
+    for (const ord of matchingOrders) {
+      if (ord.customerId) affectedCustomerIds.add(ord.customerId);
+
+      let items = [];
       try {
-        await Order.findByIdAndDelete(targetId);
-      } catch (ordErr) { }
-    }
-    try {
-      await Order.deleteMany({
-        $or: [
-          ...(isValidObjId ? [{ _id: targetId }] : []),
-          { orderNumber: targetId }
-        ]
-      });
-    } catch (e) { }
+        items = typeof ord.items === 'string' ? JSON.parse(ord.items || '[]') : (ord.items || []);
+      } catch (e) { }
 
-    res.json({ success: true, message: 'Sale and associated records permanently deleted from database' });
+      for (const item of items) {
+        const pId = item.productId || item.itemId || item._id;
+        if (pId) {
+          try {
+            await pool.query(
+              `UPDATE items SET stock = stock + ? WHERE id = ?`,
+              [Number(item.quantity) || 1, pId]
+            );
+          } catch (e) { }
+        }
+      }
+
+      await pool.query(`DELETE FROM sales WHERE orderId = ?`, [ord.id]);
+      await pool.query(`DELETE FROM orders WHERE id = ?`, [ord.id]);
+    }
+
+    // Process matching easypaisa orders
+    for (const ep of matchingEpOrders) {
+      if (ep.customerId) affectedCustomerIds.add(ep.customerId);
+      await pool.query(`DELETE FROM easypaisa_orders WHERE id = ?`, [ep.id]);
+    }
+
+    // Fallback direct deletes if not caught by select
+    if (numId > 0) {
+      await pool.query(`DELETE FROM sales WHERE id = ? OR orderId = ?`, [numId, numId]);
+      await pool.query(`DELETE FROM orders WHERE id = ?`, [numId]);
+      await pool.query(`DELETE FROM easypaisa_orders WHERE id = ?`, [numId]);
+    }
+
+    // 4. If deleteCustomer=true OR if the customer has no remaining sales/orders in MySQL:
+    for (const custId of affectedCustomerIds) {
+      if (custId && custId !== 0) {
+        const [[{ remainingSales }]] = await pool.query(
+          `SELECT COUNT(*) as remainingSales FROM sales WHERE customerId = ?`, [custId]
+        );
+        const [[{ remainingOrders }]] = await pool.query(
+          `SELECT COUNT(*) as remainingOrders FROM orders WHERE customerId = ?`, [custId]
+        );
+        const [[{ remainingEp }]] = await pool.query(
+          `SELECT COUNT(*) as remainingEp FROM easypaisa_orders WHERE customerId = ?`, [custId]
+        );
+
+        if (deleteCustomer === 'true' || deleteCustomer === true || (remainingSales === 0 && remainingOrders === 0 && remainingEp === 0)) {
+          await pool.query(`DELETE FROM customer_credits WHERE customerId = ?`, [custId]);
+          await pool.query(`DELETE FROM customers WHERE id = ?`, [custId]);
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'Sale, order, and associated customer records permanently deleted from database'
+    });
   } catch (err) {
     console.error('Delete sale error:', err);
     res.status(500).json({ message: err.message });
