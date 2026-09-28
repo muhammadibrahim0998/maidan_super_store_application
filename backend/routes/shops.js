@@ -15,6 +15,16 @@ import Order from '../models/Order.js';
 
 const router = express.Router();
 
+// Get public shops list (no authentication required for public catalog)
+router.get('/public', async (req, res) => {
+  try {
+    const [shops] = await pool.query(`SELECT id, name, address, contactNumber, logoUrl, status FROM shops WHERE status = 'active' ORDER BY name ASC`);
+    res.json({ success: true, shops });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // Get all shops (Super Admin only)
 router.get('/', authenticate, requireSuperAdmin, async (req, res) => {
   try {
@@ -219,6 +229,10 @@ router.delete('/:id', authenticate, requireSuperAdmin, async (req, res) => {
     await pool.query(`DELETE FROM \`cash_sessions\` WHERE shopId = ?`, [numShopId]).catch(() => {});
     await pool.query(`DELETE FROM \`customers\` WHERE shopId = ?`, [numShopId]).catch(() => {});
     await pool.query(`DELETE FROM \`orders\` WHERE shopId = ?`, [numShopId]).catch(() => {});
+    await pool.query(`DELETE FROM \`purchases\` WHERE shopId = ?`, [numShopId]).catch(() => {});
+    await pool.query(`DELETE FROM \`easypaisa_orders\` WHERE shopId = ?`, [numShopId]).catch(() => {});
+    await pool.query(`DELETE FROM \`customer_credits\` WHERE shopId = ?`, [numShopId]).catch(() => {});
+    await pool.query(`DELETE FROM \`purchase_credits\` WHERE shopId = ?`, [numShopId]).catch(() => {});
 
     res.json({ success: true, message: 'Shop and all associated data deleted successfully' });
   } catch (error) {

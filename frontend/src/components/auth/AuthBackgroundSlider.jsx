@@ -44,7 +44,9 @@ export function AuthBackgroundSlider() {
 
     const fetchProductImages = async () => {
       try {
-        const res = await fetch('/api/items/public/showcase');
+        const apiBase = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
+        const showcaseUrl = apiBase ? `${apiBase}/api/items/public/showcase` : '/api/items/public/showcase';
+        const res = await fetch(showcaseUrl);
         const data = await res.json();
         if (isMounted && data?.success && Array.isArray(data.images) && data.images.length > 0) {
           // Map dynamic item names & prices onto 4K crystal-clear HD wallpaper streams

@@ -48,8 +48,11 @@ app.set('trust proxy', 1);
 
 // Middleware
 const corsOptions = {
-  origin: '*',
-  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+  origin: function (origin, callback) {
+    // Dynamic origin callback: allows localhost, mobile apps, and any deployment domain
+    return callback(null, true);
+  },
+  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
   credentials: true,
   allowedHeaders: ['Content-Type', 'Authorization', 'x-owner-password', 'x-user-role'],
   exposedHeaders: ['x-owner-password', 'x-user-role']

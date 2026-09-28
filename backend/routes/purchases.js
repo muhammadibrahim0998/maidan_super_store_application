@@ -4,6 +4,51 @@ import { pool } from '../config/mysql.js';
 
 const router = express.Router();
 
+// ─── GET all purchases with query params (e.g. /api/purchases?shopId=1) ────
+router.get('/', async (req, res) => {
+  try {
+    const shopId = req.query.shopId || req.user?.shopId || 1;
+    const { status, restockType, limit = 200, page = 1 } = req.query;
+
+    let sql = `SELECT * FROM purchases WHERE shopId = ?`;
+    const params = [shopId];
+
+    if (status && status !== 'ALL') {
+      sql += ` AND paymentStatus = ?`;
+      params.push(status);
+    }
+
+    if (restockType && restockType !== 'ALL') {
+      sql += ` AND restockType = ?`;
+      params.push(restockType);
+    }
+
+    sql += ` ORDER BY purchaseDate DESC LIMIT ? OFFSET ?`;
+    params.push(Number(limit), (Number(page) - 1) * Number(limit));
+
+    const [rows] = await pool.query(sql, params);
+    const purchases = rows.map(row => { row._id = String(row.id); return row; });
+
+    // Summary stats
+    const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total FROM purchases WHERE shopId = ?`, [shopId]);
+    const [[{ totalCost }]] = await pool.query(`SELECT COALESCE(SUM(totalCost),0) as totalCost FROM purchases WHERE shopId = ?`, [shopId]);
+    const [[{ totalPaid }]] = await pool.query(`SELECT COALESCE(SUM(amountPaid),0) as totalPaid FROM purchases WHERE shopId = ?`, [shopId]);
+    const [[{ totalDue }]] = await pool.query(`SELECT COALESCE(SUM(dueAmount),0) as totalDue FROM purchases WHERE shopId = ?`, [shopId]);
+
+    res.json({
+      success: true,
+      purchases,
+      total: Number(total),
+      totalCost: Number(totalCost),
+      totalPaid: Number(totalPaid),
+      totalDue: Number(totalDue)
+    });
+  } catch (err) {
+    console.error('Purchases fetch error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // ─── GET all purchases for a shop ────────────────────────────────────────────
 router.get('/shop/:shopId', async (req, res) => {
   try {

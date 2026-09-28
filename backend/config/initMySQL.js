@@ -388,6 +388,27 @@ export async function initMySQLTables(forceRecreate = false) {
       INDEX idx_purchase_credits_supplier (supplierName)
     ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
   `);
+
+  // 15. System Updates Table
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS system_updates (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      category VARCHAR(255) NOT NULL,
+      iconType VARCHAR(100) DEFAULT 'zap',
+      items JSON,
+      version VARCHAR(50) DEFAULT '1.0.0',
+      title VARCHAR(255) DEFAULT '',
+      description TEXT,
+      releaseDate DATETIME DEFAULT CURRENT_TIMESTAMP,
+      isCritical TINYINT(1) DEFAULT 0,
+      isActive TINYINT(1) DEFAULT 1,
+      changes JSON,
+      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_system_updates_cat (category)
+    ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  `);
+
   // Seed Default Super Admin and Default Shop if not present
   try {
     const [superAdmins] = await pool.query(`SELECT id FROM users WHERE role = 'super_admin' LIMIT 1`);

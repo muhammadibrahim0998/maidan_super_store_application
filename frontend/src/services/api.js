@@ -1,12 +1,19 @@
 import axios from 'axios';
 
-// In development, use Vite proxy (empty string = same origin via Vite dev server proxy)
-// In production (Vercel), also use '' to force traffic through vercel.json rewrites.
-// Both cases: cookies work correctly because requests are same-origin.
-const API_BASE = '';
+// Dynamic API URL resolution:
+// When VITE_API_URL is set (e.g. https://your-backend.railway.app), requests hit that server directly.
+// When unset/empty, requests fall back to '/api' (via Vite dev proxy or reverse-proxy rewrite).
+const RAW_API_URL = import.meta.env.VITE_API_URL || '';
+export const API_BASE = RAW_API_URL.replace(/\/+$/, '');
+export const API_ROOT = API_BASE ? `${API_BASE}/api` : '/api';
+
+export const getApiUrl = (endpoint = '') => {
+  const cleanPath = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  return `${API_ROOT}${cleanPath}`;
+};
 
 const api = axios.create({
-  baseURL: `${API_BASE}/api`,
+  baseURL: API_ROOT,
   withCredentials: true, // Required for cookies
 });
 

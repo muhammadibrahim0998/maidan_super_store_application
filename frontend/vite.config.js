@@ -25,7 +25,7 @@ export default defineConfig({
       // Forward all /api requests to the backend server
       // This makes cookies work correctly (same-origin) and avoids CORS issues
       '/api': {
-        target: 'http://localhost:5004',
+        target: process.env.VITE_API_URL || 'http://localhost:5004',
         changeOrigin: true,
         secure: false,
       }

@@ -66,7 +66,7 @@ export function ReceiptModal({ isOpen, onClose, sale }) {
 
   const handleDownload = () => {
     if (!sale.invoiceUrl) return;
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+    const apiUrl = (import.meta.env.VITE_API_URL || (typeof window !== 'undefined' ? window.location.origin : '')).replace(/\/+$/, '');
     window.open(`${apiUrl}${sale.invoiceUrl}`, '_blank');
   };
 
@@ -173,7 +173,7 @@ export function ReceiptModal({ isOpen, onClose, sale }) {
                     `ITEMS:\n` +
                     sale.items.map(i => `${i.name}\n${i.quantity} x ${currency} ${i.price} = ${currency} ${i.subtotal}`).join('\n') +
                     `\n\nTOTAL: ${currency} ${sale.totalAmount?.toLocaleString('en-PK')}\n` +
-                    (sale.invoiceUrl ? `\nVIEW ONLINE:\n${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${sale.invoiceUrl}` : '') +
+                    (sale.invoiceUrl ? `\nVIEW ONLINE:\n${((import.meta.env.VITE_API_URL || (typeof window !== 'undefined' ? window.location.origin : '')).replace(/\/+$/, ''))}${sale.invoiceUrl}` : '') +
                     `\n\nThank you for shopping!`
                   )}`}
                   alt="QR Code"

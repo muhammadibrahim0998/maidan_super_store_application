@@ -109,4 +109,24 @@ router.put("/", authenticate, preventSuperAdmin, validateSettings, async (req, r
   }
 });
 
+
+// GET public settings by shopId
+router.get("/:shopId", async (req, res) => {
+  try {
+    const shopId = req.params.shopId;
+    let settings = await Settings.findOne({ shopId });
+    if (!settings) {
+      settings = new Settings({ shopId });
+      await settings.save();
+    }
+    const { ownerPassword, ...publicSettings } = settings.toObject();
+    if (!publicSettings.currency || publicSettings.currency === '$') {
+      publicSettings.currency = 'Rs.';
+    }
+    res.json(publicSettings);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 export default router;

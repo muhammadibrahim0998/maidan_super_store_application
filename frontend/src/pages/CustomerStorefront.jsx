@@ -27,11 +27,11 @@ import { CountUpNumber } from '../components/CountUpNumber.jsx';
 import { ShopAdminCharts } from '../components/ShopAdminCharts.jsx';
 import { ProductHeroSlider, CustomerDashboardCharts } from '../components/CustomerDashboardCharts.jsx';
 import { AuthBackgroundSlider } from '../components/auth/AuthBackgroundSlider.jsx';
-import { updateItem, deleteItem as apiDeleteItem, createItem, createSale, getSales, getShopOrders, deleteSale, settleCreditSale } from '../services/api.js';
+import { updateItem, deleteItem as apiDeleteItem, createItem, createSale, getSales, getShopOrders, deleteSale, settleCreditSale, API_ROOT } from '../services/api.js';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-const API_CATALOG = '/api/catalog';
+const API_CATALOG = `${API_ROOT}/catalog`;
 
 // Helper to get category-specific icon
 const getCategoryIcon = (category) => {
@@ -607,7 +607,7 @@ function StoreContent({ shopId }) {
   const handleApproveSale = async (saleId) => {
     try {
       const token = localStorage.getItem('nexflow_token');
-      const res = await fetch(`/api/sales/${saleId}/approve`, {
+      const res = await fetch(`${API_ROOT}/sales/${saleId}/approve`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -639,7 +639,7 @@ function StoreContent({ shopId }) {
     }
     try {
       const token = localStorage.getItem('nexflow_token') || sessionStorage.getItem('nexflow_token');
-      const res = await fetch(`/api/sales/${saleId}?deleteCustomer=true`, {
+      const res = await fetch(`${API_ROOT}/sales/${saleId}?deleteCustomer=true`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -670,7 +670,7 @@ function StoreContent({ shopId }) {
     setLoadingCustomers(true);
     try {
       const [custRes, salesData, ordersData] = await Promise.all([
-        fetch(`/api/customers/all?shopId=${shopId}&sync=true`).then(r => r.ok ? r.json() : { customers: [] }),
+        fetch(`${API_ROOT}/customers/all?shopId=${shopId}&sync=true`).then(r => r.ok ? r.json() : { customers: [] }),
         getSales(shopId).catch(() => []),
         getShopOrders({ shopId }).catch(() => ({ orders: [] }))
       ]);
@@ -697,7 +697,7 @@ function StoreContent({ shopId }) {
     if (!shopId) return;
     setLoadingCustomers(true);
     try {
-      const res = await fetch(`/api/customers/sync-sales?shopId=${shopId}`, { method: 'POST' });
+      const res = await fetch(`${API_ROOT}/customers/sync-sales?shopId=${shopId}`, { method: 'POST' });
       const data = await res.json();
       if (data.success) {
         setAddedMsg(`✅ Synced ${data.syncedSales || 0} POS bills with Customer Directory!`);
@@ -1409,7 +1409,7 @@ function StoreContent({ shopId }) {
 
     setIsUpdatingCustomer(true);
     try {
-      const res = await fetch(`/api/customers/${editingCustomer._id}`, {
+      const res = await fetch(`${API_ROOT}/customers/${editingCustomer._id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editCustomerForm)
@@ -1487,7 +1487,7 @@ function StoreContent({ shopId }) {
       return;
     }
     try {
-      const res = await fetch(`/api/customers/${customerId}`, {
+      const res = await fetch(`${API_ROOT}/customers/${customerId}`, {
         method: 'DELETE'
       });
       if (res.ok) {
@@ -2053,7 +2053,7 @@ function StoreContent({ shopId }) {
   const fetchExpenses = async () => {
     if (!shopId) return [];
     try {
-      const res = await fetch(`/api/expenses/shop/${shopId}`);
+      const res = await fetch(`${API_ROOT}/expenses/shop/${shopId}`);
       if (res.ok) {
         const data = await res.json();
         const list = data.data || [];
@@ -2111,7 +2111,7 @@ function StoreContent({ shopId }) {
 
       setExpensesList(prev => prev.map(item => String(item._id) === String(editingExpenseId) ? { ...item, ...updatedExpenseItem } : item));
       try {
-        await fetch(`/api/expenses/${editingExpenseId}`, {
+        await fetch(`${API_ROOT}/expenses/${editingExpenseId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(updatedExpenseItem)
@@ -2147,7 +2147,7 @@ function StoreContent({ shopId }) {
     };
 
     try {
-      const res = await fetch(`/api/expenses/shop/${shopId}`, {
+      const res = await fetch(`${API_ROOT}/expenses/shop/${shopId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newExpenseItem)
@@ -2417,7 +2417,7 @@ function StoreContent({ shopId }) {
     setActiveExpenseMenuId(null);
     if (!window.confirm('Are you sure you want to delete this expense entry?')) return;
     try {
-      await fetch(`/api/expenses/${id}`, { method: 'DELETE' });
+      await fetch(`${API_ROOT}/expenses/${id}`, { method: 'DELETE' });
     } catch (e) { }
     setExpensesList(prev => prev.filter(x => String(x._id) !== String(id)));
     setTimeout(fetchDashboardStats, 300);
@@ -2443,7 +2443,7 @@ function StoreContent({ shopId }) {
   const fetchDamagedProducts = async () => {
     if (!shopId) return [];
     try {
-      const res = await fetch(`/api/damaged-products/shop/${shopId}`);
+      const res = await fetch(`${API_ROOT}/damaged-products/shop/${shopId}`);
       if (res.ok) {
         const data = await res.json();
         const list = data.data || [];
@@ -2522,7 +2522,7 @@ function StoreContent({ shopId }) {
     };
 
     try {
-      const res = await fetch(`/api/damaged-products/shop/${shopId}`, {
+      const res = await fetch(`${API_ROOT}/damaged-products/shop/${shopId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newDamagedItem)
@@ -2563,7 +2563,7 @@ function StoreContent({ shopId }) {
   const handleDeleteDamaged = async (id) => {
     if (!window.confirm('Are you sure you want to delete this damaged product record and restore stock?')) return;
     try {
-      await fetch(`/api/damaged-products/${id}`, { method: 'DELETE' });
+      await fetch(`${API_ROOT}/damaged-products/${id}`, { method: 'DELETE' });
     } catch (e) { }
     setDamagedProductsList(prev => prev.filter(x => String(x._id) !== String(id)));
     await fetchCatalog();
@@ -4397,9 +4397,9 @@ function StoreContent({ shopId }) {
       if (isAdminUser && token) {
         // Fetch all three data sources in parallel
         const [custRes, salesRes, ordersRes] = await Promise.all([
-          fetch(`/api/customers/all?shopId=${shopId}`).catch(() => null),
-          fetch(`/api/sales?shopId=${shopId}`, { headers: authHeaders }).catch(() => null),
-          fetch(`/api/checkout/orders?shopId=${shopId}`, { headers: authHeaders }).catch(() => null),
+          fetch(`${API_ROOT}/customers/all?shopId=${shopId}`).catch(() => null),
+          fetch(`${API_ROOT}/sales?shopId=${shopId}`, { headers: authHeaders }).catch(() => null),
+          fetch(`${API_ROOT}/checkout/orders?shopId=${shopId}`, { headers: authHeaders }).catch(() => null),
         ]);
 
         // ── Customers ──
@@ -4542,7 +4542,7 @@ function StoreContent({ shopId }) {
         // For customer: fetch their own orders using customerId as token
         const customerId = customer?._id || customer?.customerId;
         if (!customerId) return;
-        const ordersRes = await fetch(`/api/checkout/orders`, {
+        const ordersRes = await fetch(`${API_ROOT}/checkout/orders`, {
           headers: { Authorization: `Bearer ${customerId}` }
         }).catch(() => null);
         if (ordersRes?.ok) {

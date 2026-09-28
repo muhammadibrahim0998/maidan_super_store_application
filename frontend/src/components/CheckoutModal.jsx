@@ -2,6 +2,10 @@ import React, { useState } from 'react';
 import { X, CreditCard, Wallet, Truck, CheckCircle, Loader2, Copy, Check, Upload, Image as ImageIcon, QrCode, PhoneCall, Zap, ShieldCheck } from 'lucide-react';
 import { useCustomerAuth } from '../contexts/CustomerAuthContext.jsx';
 
+const RAW_API_URL = import.meta.env.VITE_API_URL || '';
+const API_BASE = RAW_API_URL.replace(/\/+$/, '');
+const API_ROOT = API_BASE ? `${API_BASE}/api` : '/api';
+
 export function CheckoutModal({ isOpen, onClose, totalAmount, currency }) {
   const displayCurrency = (!currency || currency === '$') ? 'Rs.' : currency;
   const { cart, customer, authHeader, clearCart } = useCustomerAuth();
@@ -47,7 +51,7 @@ export function CheckoutModal({ isOpen, onClose, totalAmount, currency }) {
     try {
       const formData = new FormData();
       formData.append('images', file);
-      const res = await fetch('/api/upload/public', {
+      const res = await fetch(`${API_ROOT}/upload/public`, {
         method: 'POST',
         body: formData
       });
@@ -71,7 +75,7 @@ export function CheckoutModal({ isOpen, onClose, totalAmount, currency }) {
       // Simulate 1.2s instant gateway response
       await new Promise(r => setTimeout(r, 1200));
 
-      const res = await fetch(`/api/checkout/confirm/${easyPaisaData.orderId}`, {
+      const res = await fetch(`${API_ROOT}/checkout/confirm/${easyPaisaData.orderId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeader },
         body: JSON.stringify({ transactionId: txRef, paymentProof })
@@ -95,7 +99,7 @@ export function CheckoutModal({ isOpen, onClose, totalAmount, currency }) {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch('/api/checkout', {
+      const res = await fetch(`${API_ROOT}/checkout`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeader },
         body: JSON.stringify({ paymentMethod, shippingDetails })

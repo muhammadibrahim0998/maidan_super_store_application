@@ -112,7 +112,7 @@ router.post('/', authenticateCustomer, async (req, res) => {
         quantity: item.quantity,
       }));
 
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+      const frontendUrl = (req.get('origin') || process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/+$/, '');
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ['card'],
         line_items,

@@ -2,7 +2,10 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const CustomerAuthContext = createContext();
 
-const API = '/api/customers';
+const RAW_API_URL = import.meta.env.VITE_API_URL || '';
+const API_BASE = RAW_API_URL.replace(/\/+$/, '');
+const API_ROOT = API_BASE ? `${API_BASE}/api` : '/api';
+const API = `${API_ROOT}/customers`;
 
 export function CustomerAuthProvider({ shopId, children }) {
   const STORAGE_KEY = `customer_token_${shopId}`;
@@ -113,7 +116,7 @@ export function CustomerAuthProvider({ shopId, children }) {
   };
 
   const getMyOrders = async () => {
-    const res = await fetch('/api/checkout/my-orders', { headers: authHeader });
+    const res = await fetch(`${API_ROOT}/checkout/my-orders`, { headers: authHeader });
     const data = await res.json();
     if (!res.ok) throw new Error(data.message || 'Failed to load orders');
     return data.orders || [];
