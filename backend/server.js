@@ -31,7 +31,7 @@ import purchaseCreditsRoutes from './routes/purchaseCredits.js';
 
 dotenv.config();
 
-// Fix for MongoDB Atlas DNS resolution issues
+// DNS resolution settings
 dns.setServers(['8.8.8.8', '8.8.4.4']);
 dns.setDefaultResultOrder('ipv4first');
 

@@ -1,4 +1,3 @@
-import mongoose from 'mongoose';
 import Item from '../models/Item.js';
 import Expense from '../models/Expense.js';
 import { logSystemUpdate } from '../utils/updateHelper.js';

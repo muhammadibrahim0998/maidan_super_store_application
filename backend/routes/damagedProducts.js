@@ -1,5 +1,4 @@
 import express from 'express';
-import mongoose from 'mongoose';
 import DamagedProduct from '../models/DamagedProduct.js';
 import Item from '../models/Item.js';
 import { resolveShopId } from '../utils/shopResolver.js';

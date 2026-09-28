@@ -3,7 +3,7 @@
 PerFume Shop Center - Complete Perfume Inventory, POS, Multi-Branch & Storefront Management Application.
 
 ## Overview
-- **Backend:** Node.js, Express, MongoDB (Mongoose)
+- **Backend:** Node.js, Express, MySQL (phpMyAdmin / XAMPP)
 - **Frontend:** React, Vite, Tailwind CSS, Lucide Icons
 - **Features:**
   - Executive Business Dashboard (Real-time financial analytics, revenue, stock worth)

@@ -58,7 +58,6 @@ router.get('/all', authenticate, async (req, res) => {
   }
 });
 
-import mongoose from 'mongoose';
 
 // Get all sales (shop admin - their shop only)
 router.get('/', authenticate, requireShopAdmin, async (req, res) => {

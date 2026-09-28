@@ -38,7 +38,7 @@ export function AuthProductSliderPanel() {
   const [slides, setSlides] = useState(DEFAULT_PERFUMES);
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  // 1. Fetch dynamic products from backend MongoDB
+  // 1. Fetch dynamic products from backend MySQL
   useEffect(() => {
     let isMounted = true;
     const fetchImages = async () => {

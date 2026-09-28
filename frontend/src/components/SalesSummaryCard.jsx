@@ -6,7 +6,7 @@ import { motion } from 'framer-motion';
 /**
  * SalesSummaryCard
  * Shows every individual Sale (POS/Cash) and Order (EasyPaisa/Online)
- * directly from the database. No fake data. Numbers match MongoDB exactly.
+ * directly from the database. No fake data. Numbers match MySQL database exactly.
  */
 export function SalesSummaryCard({ sales = [], checkoutOrders = [] }) {
   const stats = useMemo(() => {

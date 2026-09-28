@@ -21,9 +21,9 @@ export async function getTableColumns(tableName) {
 }
 
 /**
- * Build SQL WHERE clause from Mongo-like filter object
+ * Build SQL WHERE clause from filter object
  */
-export function parseMongoFilter(filter = {}, tableName = '') {
+export function parseSQLFilter(filter = {}, tableName = '') {
   if (!filter || typeof filter !== 'object' || Object.keys(filter).length === 0) {
     return { whereClause: '1=1', params: [] };
   }
@@ -35,7 +35,7 @@ export function parseMongoFilter(filter = {}, tableName = '') {
     if (key === '$or' && Array.isArray(val)) {
       const orParts = [];
       for (const subFilter of val) {
-        const parsed = parseMongoFilter(subFilter, tableName);
+        const parsed = parseSQLFilter(subFilter, tableName);
         if (parsed.whereClause && parsed.whereClause !== '1=1') {
           orParts.push(`(${parsed.whereClause})`);
           params.push(...parsed.params);
@@ -50,7 +50,7 @@ export function parseMongoFilter(filter = {}, tableName = '') {
     if (key === '$and' && Array.isArray(val)) {
       const andParts = [];
       for (const subFilter of val) {
-        const parsed = parseMongoFilter(subFilter, tableName);
+        const parsed = parseSQLFilter(subFilter, tableName);
         if (parsed.whereClause && parsed.whereClause !== '1=1') {
           andParts.push(`(${parsed.whereClause})`);
           params.push(...parsed.params);
@@ -211,7 +211,7 @@ export class MySQLQueryBuilder {
   }
 
   async exec() {
-    const { whereClause, params } = parseMongoFilter(this.filter, this.model.tableName);
+    const { whereClause, params } = parseSQLFilter(this.filter, this.model.tableName);
     let sql = `SELECT ${this._fields} FROM \`${this.model.tableName}\` WHERE ${whereClause}`;
     
     if (this._sort) {
@@ -501,7 +501,7 @@ export class BaseMySQLModel {
   }
 
   static async deleteMany(filter = {}) {
-    const { whereClause, params } = parseMongoFilter(filter, this.tableName);
+    const { whereClause, params } = parseSQLFilter(filter, this.tableName);
     const [result] = await pool.query(`DELETE FROM \`${this.tableName}\` WHERE ${whereClause}`, params);
     return { deletedCount: result.affectedRows || 0, acknowledged: true };
   }
@@ -550,8 +550,9 @@ export class BaseMySQLModel {
   }
 
   static async countDocuments(filter = {}) {
-    const { whereClause, params } = parseMongoFilter(filter, this.tableName);
+    const { whereClause, params } = parseSQLFilter(filter, this.tableName);
     const [rows] = await pool.query(`SELECT COUNT(*) as count FROM \`${this.tableName}\` WHERE ${whereClause}`, params);
     return rows && rows[0] ? Number(rows[0].count) : 0;
   }
 }
+

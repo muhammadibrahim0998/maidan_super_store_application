@@ -24,7 +24,6 @@ const authenticateCustomer = async (req, res, next) => {
   }
 };
 
-import mongoose from 'mongoose';
 import { resolveShopId } from '../utils/shopResolver.js';
 import { findOrCreateCustomer, syncCustomersFromSales } from '../utils/customerHelper.js';
 import { pool } from '../config/mysql.js';

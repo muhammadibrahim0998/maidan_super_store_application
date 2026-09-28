@@ -5,7 +5,6 @@ import Customer from '../models/Customer.js';
 import Sale from '../models/Sale.js';
 import Item from '../models/Item.js';
 import Settings from '../models/Settings.js';
-import mongoose from 'mongoose';
 import crypto from 'crypto';
 import { authenticate, requireShopAdmin } from '../middleware/auth.js';
 
@@ -316,7 +315,7 @@ router.patch('/order/:orderId/status', authenticate, requireShopAdmin, async (re
           });
         } else {
           saleItems.push({
-            productId: prodId || new mongoose.Types.ObjectId(),
+            productId: prodId || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Date.now().toString()),
             name: item.name || 'Product',
             quantity: item.quantity || 1,
             price: item.price || 0,
