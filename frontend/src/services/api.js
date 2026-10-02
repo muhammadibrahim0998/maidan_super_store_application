@@ -4,7 +4,18 @@ import axios from 'axios';
 // When VITE_API_URL is set (e.g. https://your-backend.railway.app), requests hit that server directly.
 // When unset/empty, requests fall back to '/api' (via Vite dev proxy or reverse-proxy rewrite).
 const RAW_API_URL = import.meta.env.VITE_API_URL || '';
-export const API_BASE = RAW_API_URL.replace(/\/+$/, '');
+let resolvedApiBase = RAW_API_URL.replace(/\/+$/, '');
+
+// If accessed from a mobile phone / LAN IP on the network, adapt localhost:5004 to current hostname:
+if (typeof window !== 'undefined' && window.location.hostname && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+  if (resolvedApiBase.includes('localhost') || resolvedApiBase.includes('127.0.0.1')) {
+    resolvedApiBase = resolvedApiBase
+      .replace('localhost', window.location.hostname)
+      .replace('127.0.0.1', window.location.hostname);
+  }
+}
+
+export const API_BASE = resolvedApiBase;
 export const API_ROOT = API_BASE ? `${API_BASE}/api` : '/api';
 
 export const getApiUrl = (endpoint = '') => {

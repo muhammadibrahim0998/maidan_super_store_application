@@ -8,7 +8,8 @@ import {
   Layers, ShoppingBasket, Shirt, Home, Watch, Smartphone, Footprints,
   Menu, Filter, HelpCircle, LayoutDashboard,
   Truck, Edit2, Edit, Receipt, Printer, DollarSign, FileText, Send, TrendingUp, TrendingDown, PackageX, AlertTriangle, FileSpreadsheet, Users, RefreshCw, Building2, Calendar, CreditCard, Banknote, ShieldCheck, Box, MoreVertical,
-  BarChart3, PieChart
+  BarChart3, PieChart, ChevronLeft, ChevronRight, ArrowUpDown, Download, Star,
+  Barcode as BarcodeIcon, ScanLine, Camera
 } from 'lucide-react';
 import { CustomerAuthProvider, useCustomerAuth } from '../contexts/CustomerAuthContext.jsx';
 import { useUser } from '../contexts/UserContext.jsx';
@@ -18,6 +19,11 @@ import UserOrderModal from '../components/UserOrderModal.jsx';
 import { ProductModal } from '../components/ProductModal.jsx';
 import { DeleteConfirmationModal } from '../components/DeleteConfirmationModal.jsx';
 import WalkInBillModal from '../components/WalkInBillModal.jsx';
+import { BarcodeScannerModal } from '../components/BarcodeScannerModal.jsx';
+import { BarcodeRenderer } from '../components/BarcodeRenderer.jsx';
+import { useBarcodeScanner } from '../hooks/useBarcodeScanner.js';
+import { playBarcodeBeep } from '../utils/soundHelper.js';
+import { toast } from 'sonner';
 import { OrdersManagement } from '../components/OrdersManagement.jsx';
 import { PurchasesManagement } from '../components/PurchasesManagement.jsx';
 import { CustomerCreditManagement } from '../components/CustomerCreditManagement.jsx';
@@ -479,10 +485,34 @@ function StoreContent({ shopId }) {
     }
   }, [shopId, isAdminUser]);
 
+  // Auto-detect and open scanned digital bill from QR / barcode URL (?bill=INV-00007 or ?invoice=... or ?sale=...)
   useEffect(() => {
-    if (activeView === 'sales' || activeView === 'report-sales' || activeView === 'report-profit' || activeView === 'dashboard') {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const billParam = urlParams.get('bill') || urlParams.get('invoice') || urlParams.get('sale') || urlParams.get('inv');
+      if (billParam) {
+        const cleanParam = String(billParam).trim();
+        fetch(`${API_ROOT}/sales/public/verify/${encodeURIComponent(cleanParam)}`)
+          .then(res => res.json())
+          .then(data => {
+            if (data && data.success && data.sale) {
+              setCompletedBill(data.sale);
+              playBarcodeBeep('success');
+              toast.success(`✨ Verified Bill #${data.sale.serialNumber || cleanParam} loaded!`);
+            } else {
+              toast.error(data?.message || `Sale bill "${cleanParam}" not found.`);
+            }
+          })
+          .catch(err => console.error("Error loading bill from QR scan:", err));
+      }
+    } catch (e) {}
+  }, []);
+
+  useEffect(() => {
+    if (activeView === 'sales' || activeView === 'report-sales' || activeView === 'report-profit' || activeView === 'dashboard' || activeView === 'walkin' || activeView === 'registered-customers') {
       fetchShopSales();
       fetchRegisteredCustomers();
+      fetchDashboardStats();
     }
     if (isAdminUser && (activeView === 'report-expenses' || activeView === 'damaged-products' || activeView === 'dashboard')) {
       fetchExpenses();
@@ -494,6 +524,8 @@ function StoreContent({ shopId }) {
   const [walkInCart, setWalkInCart] = useState([]);
   const [walkInCustomerName, setWalkInCustomerName] = useState('');
   const [walkInCustomerPhone, setWalkInCustomerPhone] = useState('');
+  const [walkInCustomerEmail, setWalkInCustomerEmail] = useState('');
+  const [walkInCustomerId, setWalkInCustomerId] = useState(null);
   const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
   const [walkInPaymentMethod, setWalkInPaymentMethod] = useState('CASH');
   const [walkInPaidAmount, setWalkInPaidAmount] = useState('');
@@ -520,7 +552,97 @@ function StoreContent({ shopId }) {
     address: '',
     password: '',
   });
+
+  // ─── Barcode & Scanner System ───
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [billBarcodeQuery, setBillBarcodeQuery] = useState('');
+
+  const handleBarcodeScanned = async (scannedCode) => {
+    if (!scannedCode) return;
+    const clean = String(scannedCode).trim();
+
+    // 1. Detect if scanned code is a Bill Invoice or contains a Bill URL (?bill=...)
+    let billInvoiceNumber = null;
+    if (clean.includes('?bill=') || clean.includes('&bill=') || clean.includes('?invoice=')) {
+      try {
+        const u = new URL(clean, window.location.origin);
+        billInvoiceNumber = u.searchParams.get('bill') || u.searchParams.get('invoice') || u.searchParams.get('sale');
+      } catch (e) {
+        const m = clean.match(/[\?&](?:bill|invoice|sale)=([^&]+)/i);
+        if (m) billInvoiceNumber = decodeURIComponent(m[1]);
+      }
+    } else if (/^INV-\d+/i.test(clean) || (clean.toUpperCase().startsWith('INV') && clean.length >= 7)) {
+      billInvoiceNumber = clean;
+    }
+
+    if (billInvoiceNumber) {
+      playBarcodeBeep('success');
+      toast.info(`🔍 Loading Bill ${billInvoiceNumber}...`);
+      try {
+        const res = await fetch(`${API_ROOT}/sales/public/verify/${encodeURIComponent(billInvoiceNumber)}`);
+        const data = await res.json();
+        if (data && data.success && data.sale) {
+          setCompletedBill(data.sale);
+          setScannerOpen(false);
+          toast.success(`✨ Bill #${data.sale.serialNumber || billInvoiceNumber} opened! Total: ${currency} ${(data.sale.totalAmount || 0).toLocaleString()}`);
+          return;
+        } else {
+          toast.error(`Bill "${billInvoiceNumber}" not found.`);
+        }
+      } catch (err) {
+        console.error("Bill scan fetch error:", err);
+      }
+      return;
+    }
+
+    // 2. Otherwise search product in inventory
+    const found = (items || []).find(i => 
+      String(i.barcode || '').trim().toLowerCase() === clean.toLowerCase() ||
+      String(i._id || '').trim().toLowerCase() === clean.toLowerCase() ||
+      String(i.id || '').trim().toLowerCase() === clean.toLowerCase()
+    );
+
+    if (found) {
+      playBarcodeBeep('success');
+      if (isAdminUser) {
+        addToWalkInCart(found);
+        toast.success(`⚡ Scanned: ${found.name} - Added to Bill!`);
+      } else {
+        setSelectedItem(found);
+        toast.success(`⚡ Scanned: ${found.name}`);
+      }
+    } else {
+      playBarcodeBeep('error');
+      setSearch(clean);
+      toast.info(`Barcode scanned: ${clean} (Searching catalog...)`);
+    }
+  };
+
+  // Global Hardware USB / Handheld Barcode Gun Scanner hook
+  useBarcodeScanner({
+    onScan: handleBarcodeScanned,
+    enabled: true
+  });
   const [isUpdatingCustomer, setIsUpdatingCustomer] = useState(false);
+
+  // Sale Edit State
+  const [editingSale, setEditingSale] = useState(null);
+  const [isUpdatingSale, setIsUpdatingSale] = useState(false);
+  const [editSaleForm, setEditSaleForm] = useState({
+    customerName: '',
+    customerPhone: '',
+    customerEmail: '',
+    paymentMethod: 'CASH',
+    cashPaid: 0,
+    bankPaid: 0,
+    dueAmount: 0,
+    totalAmount: 0
+  });
+
+  // Dedicated Customer History & Directory Filter
+  const [selectedCustomerHistory, setSelectedCustomerHistory] = useState(null);
+  const [customerDirectoryTab, setCustomerDirectoryTab] = useState('ALL'); // 'ALL' | 'REPEAT'
+  const [customerSearchQuery, setCustomerSearchQuery] = useState('');
 
   // Credit Payment / Settlement Modal State
   const [settlingCreditSale, setSettlingCreditSale] = useState(null);
@@ -670,22 +792,25 @@ function StoreContent({ shopId }) {
     setLoadingCustomers(true);
     try {
       const [custRes, salesData, ordersData] = await Promise.all([
-        fetch(`${API_ROOT}/customers/all?shopId=${shopId}&sync=true`).then(r => r.ok ? r.json() : { customers: [] }),
+        fetch(`${API_ROOT}/customers/all?shopId=${shopId}`).then(r => r.ok ? r.json() : { customers: [] }),
         getSales(shopId).catch(() => []),
         getShopOrders({ shopId }).catch(() => ({ orders: [] }))
       ]);
 
       const rawCust = custRes.customers || [];
-      const shopFilteredCust = rawCust.filter(c => !c.shopId || String(c.shopId?._id || c.shopId) === String(shopId));
+      const shopFilteredCust = rawCust.map(c => ({
+        ...c,
+        _id: String(c._id || c.id),
+        id: c.id || c._id
+      }));
       setRegisteredCustomersList(shopFilteredCust);
+      setDashStats(prev => ({ ...prev, totalCustomers: shopFilteredCust.length }));
 
       const salesArr = Array.isArray(salesData) ? salesData : (salesData?.sales || salesData?.data || []);
-      const shopFilteredSales = salesArr.filter(s => !s.shopId || String(s.shopId?._id || s.shopId) === String(shopId));
-      setShopSalesList(shopFilteredSales);
+      setShopSalesList(salesArr);
 
       const ordersArr = ordersData?.orders || ordersData?.data || (Array.isArray(ordersData) ? ordersData : []);
-      const shopFilteredOrders = ordersArr.filter(o => !o.shopId || String(o.shopId?._id || o.shopId) === String(shopId));
-      setAllShopOrders(shopFilteredOrders);
+      setAllShopOrders(ordersArr);
     } catch (err) {
       console.error("Fetch registered customers error:", err);
     } finally {
@@ -729,7 +854,7 @@ function StoreContent({ shopId }) {
 
       if (custId && sId && custId === sId) return true;
       if (email && cEmail && (email === cEmail || cEmail.includes(email) || email.includes(cEmail))) return true;
-      if (name && cName && (cName === name || cName.includes(name) || name.includes(cName))) return true;
+      if (name && name !== 'walk-in customer' && name !== 'walkin customer' && cName && (cName === name || cName.includes(name) || name.includes(cName))) return true;
       if (phone && cPhone && phone.length >= 7 && cPhone.length >= 7 && (cPhone.includes(phone) || phone.includes(cPhone))) return true;
       return false;
     });
@@ -750,7 +875,7 @@ function StoreContent({ shopId }) {
 
       if (custId && oCustId && custId === oCustId) return true;
       if (email && shipEmail && (email === shipEmail || shipEmail.includes(email) || email.includes(shipEmail))) return true;
-      if (name && shipName && (shipName === name || shipName.includes(name) || name.includes(shipName))) return true;
+      if (name && name !== 'walk-in customer' && name !== 'walkin customer' && shipName && (shipName === name || shipName.includes(name) || name.includes(shipName))) return true;
       if (phone && shipPhone && phone.length >= 7 && shipPhone.length >= 7 && (shipPhone.includes(phone) || phone.includes(shipPhone))) return true;
       return false;
     });
@@ -789,7 +914,7 @@ function StoreContent({ shopId }) {
       }))
     ].sort((a, b) => new Date(b.date) - new Date(a.date));
 
-    return { totalSpent, ordersCount, combinedHistory };
+    return { totalSpent, ordersCount, combinedHistory, matchingSales, standaloneOrders };
   };
 
   const handleWhatsAppCustomerShare = (cust, index = 0) => {
@@ -1509,6 +1634,78 @@ function StoreContent({ shopId }) {
     }
   };
 
+  const handleOpenEditSale = (sale) => {
+    setEditingSale(sale);
+    const pMethod = String(sale.paymentMethod || 'CASH').toUpperCase();
+    const total = Number(sale.totalAmount) || 0;
+    const cash = sale.cashPaid !== undefined ? Number(sale.cashPaid) : (pMethod === 'CASH' ? total : 0);
+    const bank = sale.bankPaid !== undefined ? Number(sale.bankPaid) : (pMethod === 'BANK_TRANSFER' ? total : 0);
+    const due = sale.dueAmount !== undefined ? Number(sale.dueAmount) : (pMethod === 'CREDIT' ? total : 0);
+
+    setEditSaleForm({
+      customerName: sale.customerName || '',
+      customerPhone: sale.customerPhone || '',
+      customerEmail: sale.customerEmail || '',
+      paymentMethod: pMethod,
+      cashPaid: cash,
+      bankPaid: bank,
+      dueAmount: due,
+      totalAmount: total
+    });
+  };
+
+  const handleSaveEditSale = async (e) => {
+    if (e) e.preventDefault();
+    if (!editingSale?._id && !editingSale?.id) return;
+    const saleId = editingSale._id || editingSale.id;
+    setIsUpdatingSale(true);
+    try {
+      const token = localStorage.getItem('nexflow_token') || sessionStorage.getItem('nexflow_token');
+      const numTotal = Number(editSaleForm.totalAmount) || 0;
+      const numCash = Number(editSaleForm.cashPaid) || 0;
+      const numBank = Number(editSaleForm.bankPaid) || 0;
+      const numDue = Number(editSaleForm.dueAmount) || 0;
+
+      const res = await fetch(`${API_ROOT}/sales/${saleId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: token ? `Bearer ${token}` : '',
+          'x-user-role': 'shop_admin'
+        },
+        body: JSON.stringify({
+          customerName: editSaleForm.customerName.trim(),
+          customerPhone: editSaleForm.customerPhone.trim(),
+          customerEmail: editSaleForm.customerEmail.trim(),
+          paymentMethod: editSaleForm.paymentMethod,
+          cashPaid: numCash,
+          bankPaid: numBank,
+          dueAmount: numDue,
+          totalAmount: numTotal,
+          items: editingSale.items || []
+        })
+      });
+
+      const updated = await res.json();
+      if (res.ok) {
+        setAddedMsg(`Sale record #${editingSale.invoiceNumber || saleId} updated successfully!`);
+        setTimeout(() => setAddedMsg(''), 3000);
+        setShopSalesList(prev => (prev || []).map(s => String(s._id || s.id) === String(saleId) ? { ...s, ...updated } : s));
+        setEditingSale(null);
+        fetchShopSales();
+        fetchRegisteredCustomers();
+        fetchDashboardStats();
+      } else {
+        alert(updated.message || 'Failed to update sale record');
+      }
+    } catch (err) {
+      console.error('Update sale error:', err);
+      alert('Error updating sale record');
+    } finally {
+      setIsUpdatingSale(false);
+    }
+  };
+
   const getProductUnitPrice = (product, unit = 'tray') => {
     if (!product) return 0;
     const basePrice = Number(product.price) || 0;
@@ -1727,6 +1924,8 @@ function StoreContent({ shopId }) {
         cashierName: user?.fullName || 'Shop Admin',
         customerName: walkInCustomerName.trim() || (isCreditSale ? 'Credit Customer' : 'Walk-in Customer'),
         customerPhone: walkInCustomerPhone.trim(),
+        customerEmail: walkInCustomerEmail.trim(),
+        customerId: walkInCustomerId || null,
         paymentMethod: finalPaymentMethod,
         cashPaid,
         bankPaid,
@@ -1743,7 +1942,10 @@ function StoreContent({ shopId }) {
       const billData = {
         ...created,
         _id: created?._id || created?.sale?._id || `sale_${Date.now()}`,
+        customerId: created?.customerId || created?.customer?.id || walkInCustomerId || null,
+        customerName: walkInCustomerName.trim() || (isCreditSale ? 'Credit Customer' : 'Walk-in Customer'),
         customerPhone: walkInCustomerPhone.trim(),
+        customerEmail: walkInCustomerEmail.trim() || created?.customerEmail || created?.customer?.email || '',
         cashPaid,
         bankPaid,
         dueAmount,
@@ -1753,7 +1955,6 @@ function StoreContent({ shopId }) {
         totalAmount,
         totalProfit,
         cashierName: user?.fullName || 'Shop Admin',
-        customerName: walkInCustomerName.trim() || (isCreditSale ? 'Credit Customer' : 'Walk-in Customer'),
         createdAt: new Date().toISOString(),
         saleDate: new Date().toISOString()
       };
@@ -1762,6 +1963,8 @@ function StoreContent({ shopId }) {
       setWalkInCart([]);
       setWalkInCustomerName('');
       setWalkInCustomerPhone('');
+      setWalkInCustomerEmail('');
+      setWalkInCustomerId(null);
       setWalkInPaymentMethod('CASH');
       setWalkInPaidAmount('');
       setWalkInPartialDestination('CASH');
@@ -1770,6 +1973,39 @@ function StoreContent({ shopId }) {
 
       // Instantly prepend to shopSalesList so POS sales & reports update without refresh
       setShopSalesList(prev => [billData, ...(prev || []).filter(s => String(s._id) !== String(billData._id))]);
+
+      // Instantly register / update customer in registeredCustomersList state dynamically
+      const customerPayload = created?.customer || (walkInCustomerName.trim() ? {
+        id: created?.customerId || billData.customerId || Date.now(),
+        _id: String(created?.customerId || billData.customerId || Date.now()),
+        fullName: walkInCustomerName.trim(),
+        email: walkInCustomerEmail.trim() || `${walkInCustomerName.trim().toLowerCase().replace(/\s+/g, '_')}@customer.pos`,
+        phone: walkInCustomerPhone.trim(),
+        shopId: shopId || 1
+      } : null);
+
+      if (customerPayload) {
+        const newCustObj = {
+          ...customerPayload,
+          _id: String(customerPayload._id || customerPayload.id),
+          id: customerPayload.id || customerPayload._id
+        };
+        setRegisteredCustomersList(prev => {
+          const list = Array.isArray(prev) ? prev : [];
+          const exists = list.some(c => 
+            String(c._id || c.id) === String(newCustObj._id) || 
+            (newCustObj.email && c.email && c.email.toLowerCase() === newCustObj.email.toLowerCase())
+          );
+          if (exists) {
+            return list.map(c => 
+              (String(c._id || c.id) === String(newCustObj._id) || (newCustObj.email && c.email && c.email.toLowerCase() === newCustObj.email.toLowerCase()))
+                ? { ...c, ...newCustObj }
+                : c
+            );
+          }
+          return [newCustObj, ...list];
+        });
+      }
 
       // Instantly decrement item stock in memory
       setItems(prev => (prev || []).map(p => {
@@ -1782,10 +2018,13 @@ function StoreContent({ shopId }) {
         };
       }));
 
-      await fetchCatalog();
-      await fetchDashboardStats();
-      await fetchShopSales();
-      await fetchRegisteredCustomers();
+      // Background re-fetch all data to stay 100% in sync with MySQL
+      Promise.all([
+        fetchCatalog().catch(() => {}),
+        fetchDashboardStats().catch(() => {}),
+        fetchShopSales().catch(() => {}),
+        fetchRegisteredCustomers().catch(() => {})
+      ]);
     } catch (err) {
       alert(err.message || 'Failed to complete sale');
     } finally {
@@ -1874,6 +2113,13 @@ function StoreContent({ shopId }) {
   const [salesReportSearchTerm, setSalesReportSearchTerm] = useState('');
   const [salesReportPaymentFilter, setSalesReportPaymentFilter] = useState('ALL');
   const [reportMenuOpen, setReportMenuOpen] = useState(false);
+
+  // ─── Profit Report Dynamic Detailed Table States ───
+  const [profitReportTab, setProfitReportTab] = useState('transactions'); // 'transactions' | 'products' | 'daily'
+  const [profitSearchTerm, setProfitSearchTerm] = useState('');
+  const [profitSortBy, setProfitSortBy] = useState('date-desc'); // 'date-desc' | 'profit-desc' | 'profit-asc' | 'revenue-desc' | 'margin-desc'
+  const [profitPage, setProfitPage] = useState(1);
+  const [profitRowsPerPage, setProfitRowsPerPage] = useState(15);
   const [dashStats, setDashStats] = useState({
     totalProducts: 0,
     totalStock: 0,
@@ -1943,18 +2189,18 @@ function StoreContent({ shopId }) {
   // ─── Filtered Sales for Sales Report View (Strict Timeframe + Search) ───
   const filteredSalesForReport = useMemo(() => {
     const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
+    const todayLocalStr = now.toLocaleDateString('en-CA'); // YYYY-MM-DD local date
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
 
     return (unifiedSalesList || []).filter(s => {
       if (!s) return false;
       const sDate = new Date(s.saleDate || s.createdAt || s.date || 0);
-      const sDateStr = sDate.toISOString().split('T')[0];
+      const sDateLocalStr = !isNaN(sDate.getTime()) ? sDate.toLocaleDateString('en-CA') : '';
 
       let matchTime = true;
       if (reportTimeframe === 'DAY') {
-        matchTime = sDateStr === todayStr;
+        matchTime = sDateLocalStr === todayLocalStr || sDate.toDateString() === now.toDateString();
       } else if (reportTimeframe === 'MONTH') {
         matchTime = sDate.getMonth() === currentMonth && sDate.getFullYear() === currentYear;
       } else if (reportTimeframe === 'YEAR') {
@@ -2850,6 +3096,372 @@ function StoreContent({ shopId }) {
       filteredDamaged
     };
   }, [unifiedSalesList, shopSalesList, items, expensesList, damagedProductsList, reportTimeframe, dashStats]);
+
+  // ─── 4. Detailed Profit Table Data Mappings & Summaries ───
+  // A. All Invoices / Transactions Profit Details
+  const profitTransactionsAll = useMemo(() => {
+    const sales = profitReportStats.filteredSales || [];
+    return sales.map((s, idx) => {
+      const rawItems = Array.isArray(s.items) ? s.items : (typeof s.items === 'string' ? JSON.parse(s.items || '[]') : []);
+      const revenue = Number(s.totalAmount) || 0;
+
+      let calcCost = 0;
+      rawItems.forEach(it => {
+        const q = Number(it.quantity || it.totalUnits) || 1;
+        const cp = Number(it.costPrice);
+        if (!isNaN(cp) && cp > 0) {
+          calcCost += (cp * q);
+        }
+      });
+
+      const profit = Number(s.totalProfit) > 0
+        ? Number(s.totalProfit)
+        : (calcCost > 0 ? Math.max(0, revenue - calcCost) : Math.round(revenue * 0.15));
+
+      const cost = calcCost > 0 ? calcCost : Math.max(0, revenue - profit);
+      const margin = revenue > 0 ? ((profit / revenue) * 100) : 0;
+      const invNo = s.invoiceNumber || s.serialNumber || (s._id ? `INV-${String(s._id).slice(-6).toUpperCase()}` : `#${idx + 1}`);
+
+      return {
+        _id: s._id || s.id || `sale_${idx}`,
+        date: s.saleDate || s.createdAt || s.date || new Date(),
+        invoiceNumber: invNo,
+        customerName: s.customerName || (s.isOnlineOrder ? 'Online Customer' : 'Walk-in Customer'),
+        customerPhone: s.customerPhone || '',
+        paymentMethod: s.paymentMethod || 'CASH',
+        items: rawItems,
+        itemsCount: rawItems.reduce((acc, it) => acc + (Number(it.quantity) || 1), 0),
+        itemsSummary: rawItems.map(it => `${it.name || 'Item'} (${it.quantity || 1})`).join(', ') || 'General Items',
+        revenue,
+        cost,
+        profit,
+        margin,
+        isOnlineOrder: !!s.isOnlineOrder,
+        cashierName: s.cashierName || 'Shop Admin',
+        rawSale: s
+      };
+    });
+  }, [profitReportStats.filteredSales]);
+
+  // B. Product-wise Profitability Aggregation
+  const profitProductsAll = useMemo(() => {
+    const sales = profitReportStats.filteredSales || [];
+    const pMap = {};
+
+    sales.forEach(s => {
+      const rawItems = Array.isArray(s.items) ? s.items : (typeof s.items === 'string' ? JSON.parse(s.items || '[]') : []);
+      rawItems.forEach(it => {
+        const name = (it.name || it.productName || 'General Product').trim();
+        if (!pMap[name]) {
+          pMap[name] = {
+            name,
+            category: it.category || 'General',
+            unitType: it.unitType || 'unit',
+            unitsSold: 0,
+            revenue: 0,
+            cost: 0,
+            profit: 0,
+            invoicesCount: 0
+          };
+        }
+        const qty = Number(it.quantity || it.totalUnits) || 1;
+        const price = Number(it.price) || 0;
+        const rev = Number(it.subtotal || (price * qty)) || 0;
+        const cp = Number(it.costPrice || (price * 0.75));
+        const cst = cp * qty;
+        const prf = Number(it.profit || (rev - cst)) || 0;
+
+        pMap[name].unitsSold += qty;
+        pMap[name].revenue += rev;
+        pMap[name].cost += cst;
+        pMap[name].profit += prf;
+        pMap[name].invoicesCount += 1;
+      });
+    });
+
+    return Object.values(pMap).map(p => ({
+      ...p,
+      margin: p.revenue > 0 ? ((p.profit / p.revenue) * 100) : 0
+    }));
+  }, [profitReportStats.filteredSales]);
+
+  // C. Daily Periodic Summary Timeline
+  const profitDailyAll = useMemo(() => {
+    const dayMap = {};
+
+    (profitReportStats.filteredSales || []).forEach(s => {
+      const d = new Date(s.saleDate || s.createdAt || 0);
+      const dKey = !isNaN(d.getTime()) ? d.toISOString().split('T')[0] : 'N/A';
+      if (!dayMap[dKey]) {
+        dayMap[dKey] = {
+          date: dKey,
+          rawDate: d,
+          invoicesCount: 0,
+          revenue: 0,
+          profit: 0,
+          cost: 0,
+          expenses: 0,
+          damagedLoss: 0
+        };
+      }
+      const rev = Number(s.totalAmount) || 0;
+      const prof = Number(s.totalProfit) || Math.round(rev * 0.15);
+      dayMap[dKey].invoicesCount += 1;
+      dayMap[dKey].revenue += rev;
+      dayMap[dKey].profit += prof;
+      dayMap[dKey].cost += Math.max(0, rev - prof);
+    });
+
+    (profitReportStats.filteredExpenses || []).forEach(e => {
+      const d = new Date(e.expenseDate || e.createdAt || 0);
+      const dKey = !isNaN(d.getTime()) ? d.toISOString().split('T')[0] : 'N/A';
+      if (!dayMap[dKey]) {
+        dayMap[dKey] = {
+          date: dKey,
+          rawDate: d,
+          invoicesCount: 0,
+          revenue: 0,
+          profit: 0,
+          cost: 0,
+          expenses: 0,
+          damagedLoss: 0
+        };
+      }
+      dayMap[dKey].expenses += Number(e.amount) || 0;
+    });
+
+    (profitReportStats.filteredDamaged || []).forEach(d => {
+      const dt = new Date(d.damageDate || d.createdAt || 0);
+      const dKey = !isNaN(dt.getTime()) ? dt.toISOString().split('T')[0] : 'N/A';
+      if (!dayMap[dKey]) {
+        dayMap[dKey] = {
+          date: dKey,
+          rawDate: dt,
+          invoicesCount: 0,
+          revenue: 0,
+          profit: 0,
+          cost: 0,
+          expenses: 0,
+          damagedLoss: 0
+        };
+      }
+      const loss = Number(d.totalLoss) > 0 ? Number(d.totalLoss) : ((Number(d.quantity) || 0) * (Number(d.unitPrice) || 0));
+      dayMap[dKey].damagedLoss += loss;
+    });
+
+    return Object.values(dayMap)
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .map(row => {
+        const netProfit = row.profit - row.expenses - row.damagedLoss;
+        const margin = row.revenue > 0 ? ((netProfit / row.revenue) * 100) : 0;
+        return {
+          ...row,
+          netProfit,
+          margin
+        };
+      });
+  }, [profitReportStats.filteredSales, profitReportStats.filteredExpenses, profitReportStats.filteredDamaged]);
+
+  // Filtered & Sorted Active Profit Data
+  const profitActiveFilteredData = useMemo(() => {
+    const q = profitSearchTerm.trim().toLowerCase();
+
+    if (profitReportTab === 'products') {
+      let list = [...profitProductsAll];
+      if (q) {
+        list = list.filter(p => p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q));
+      }
+      list.sort((a, b) => {
+        if (profitSortBy === 'profit-desc') return b.profit - a.profit;
+        if (profitSortBy === 'profit-asc') return a.profit - b.profit;
+        if (profitSortBy === 'revenue-desc') return b.revenue - a.revenue;
+        if (profitSortBy === 'margin-desc') return b.margin - a.margin;
+        return b.unitsSold - a.unitsSold;
+      });
+      return list;
+    }
+
+    if (profitReportTab === 'daily') {
+      let list = [...profitDailyAll];
+      if (q) {
+        list = list.filter(d => d.date.toLowerCase().includes(q));
+      }
+      list.sort((a, b) => {
+        if (profitSortBy === 'profit-desc') return b.netProfit - a.netProfit;
+        if (profitSortBy === 'profit-asc') return a.netProfit - b.netProfit;
+        if (profitSortBy === 'revenue-desc') return b.revenue - a.revenue;
+        if (profitSortBy === 'margin-desc') return b.margin - a.margin;
+        return new Date(b.date) - new Date(a.date);
+      });
+      return list;
+    }
+
+    // Default: 'transactions'
+    let list = [...profitTransactionsAll];
+    if (q) {
+      list = list.filter(t =>
+        t.invoiceNumber.toLowerCase().includes(q) ||
+        t.customerName.toLowerCase().includes(q) ||
+        t.customerPhone.toLowerCase().includes(q) ||
+        t.itemsSummary.toLowerCase().includes(q) ||
+        t.paymentMethod.toLowerCase().includes(q) ||
+        t.cashierName.toLowerCase().includes(q)
+      );
+    }
+    list.sort((a, b) => {
+      if (profitSortBy === 'profit-desc') return b.profit - a.profit;
+      if (profitSortBy === 'profit-asc') return a.profit - b.profit;
+      if (profitSortBy === 'revenue-desc') return b.revenue - a.revenue;
+      if (profitSortBy === 'margin-desc') return b.margin - a.margin;
+      if (profitSortBy === 'date-asc') return new Date(a.date) - new Date(b.date);
+      return new Date(b.date) - new Date(a.date);
+    });
+    return list;
+  }, [profitReportTab, profitTransactionsAll, profitProductsAll, profitDailyAll, profitSearchTerm, profitSortBy]);
+
+  // Dynamic Pagination
+  const profitTotalPages = Math.ceil(profitActiveFilteredData.length / profitRowsPerPage) || 1;
+  const profitPaginatedRows = useMemo(() => {
+    if (profitRowsPerPage >= 9999) return profitActiveFilteredData;
+    const start = (profitPage - 1) * profitRowsPerPage;
+    return profitActiveFilteredData.slice(start, start + profitRowsPerPage);
+  }, [profitActiveFilteredData, profitPage, profitRowsPerPage]);
+
+  // Aggregate stats for currently filtered items
+  const profitActiveSummary = useMemo(() => {
+    let totalRev = 0;
+    let totalCst = 0;
+    let totalPrf = 0;
+    profitActiveFilteredData.forEach(row => {
+      totalRev += (row.revenue || 0);
+      totalCst += (row.cost || row.expenses || 0);
+      totalPrf += (row.profit !== undefined ? row.profit : (row.netProfit || 0));
+    });
+    const avgMargin = totalRev > 0 ? ((totalPrf / totalRev) * 100) : 0;
+    return {
+      count: profitActiveFilteredData.length,
+      totalRev,
+      totalCst,
+      totalPrf,
+      avgMargin
+    };
+  }, [profitActiveFilteredData]);
+
+  // Excel Exporter for Dynamic Profit Table
+  const handleExportProfitDetailedExcel = () => {
+    const shopName = shop?.name || 'Maidan Perfume Shop';
+    const dateStr = new Date().toLocaleDateString('en-PK', { day: '2-digit', month: 'short', year: 'numeric' });
+    let rowsHtml = '';
+    let tableHeaders = '';
+
+    if (profitReportTab === 'products') {
+      tableHeaders = `
+        <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #0f172a;">#</th>
+        <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #0f172a;">Product Name</th>
+        <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #0f172a;">Category</th>
+        <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #0f172a;text-align:center;">Units Sold</th>
+        <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #0f172a;text-align:right;">Total Revenue</th>
+        <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #0f172a;text-align:right;">Total Cost</th>
+        <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #0f172a;text-align:right;">Gross Profit</th>
+        <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #0f172a;text-align:right;">Margin %</th>
+      `;
+      rowsHtml = profitActiveFilteredData.map((p, idx) => `
+        <tr style="background:${idx % 2 === 0 ? '#fff' : '#f8fafc'};">
+          <td style="border:1px solid #cbd5e1;text-align:center;padding:7px;">${idx + 1}</td>
+          <td style="border:1px solid #cbd5e1;font-weight:bold;padding:7px;">${p.name}</td>
+          <td style="border:1px solid #cbd5e1;padding:7px;">${p.category}</td>
+          <td style="border:1px solid #cbd5e1;text-align:center;padding:7px;">${p.unitsSold}</td>
+          <td style="border:1px solid #cbd5e1;text-align:right;color:#047857;font-weight:bold;padding:7px;">RS ${p.revenue.toLocaleString()}</td>
+          <td style="border:1px solid #cbd5e1;text-align:right;color:#0284c7;padding:7px;">RS ${Math.round(p.cost).toLocaleString()}</td>
+          <td style="border:1px solid #cbd5e1;text-align:right;color:#059669;font-weight:900;padding:7px;">RS ${Math.round(p.profit).toLocaleString()}</td>
+          <td style="border:1px solid #cbd5e1;text-align:right;font-weight:bold;padding:7px;">${p.margin.toFixed(1)}%</td>
+        </tr>
+      `).join('');
+    } else if (profitReportTab === 'daily') {
+      tableHeaders = `
+        <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #0f172a;">#</th>
+        <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #0f172a;">Date</th>
+        <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #0f172a;text-align:center;">Invoices</th>
+        <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #0f172a;text-align:right;">Day Revenue</th>
+        <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #0f172a;text-align:right;">Day Cost</th>
+        <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #0f172a;text-align:right;">Day Expenses</th>
+        <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #0f172a;text-align:right;">Day Damage</th>
+        <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #0f172a;text-align:right;">Net Profit</th>
+        <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #0f172a;text-align:right;">Margin %</th>
+      `;
+      rowsHtml = profitActiveFilteredData.map((d, idx) => `
+        <tr style="background:${idx % 2 === 0 ? '#fff' : '#f8fafc'};">
+          <td style="border:1px solid #cbd5e1;text-align:center;padding:7px;">${idx + 1}</td>
+          <td style="border:1px solid #cbd5e1;font-weight:bold;padding:7px;">${d.date}</td>
+          <td style="border:1px solid #cbd5e1;text-align:center;padding:7px;">${d.invoicesCount}</td>
+          <td style="border:1px solid #cbd5e1;text-align:right;color:#047857;font-weight:bold;padding:7px;">RS ${d.revenue.toLocaleString()}</td>
+          <td style="border:1px solid #cbd5e1;text-align:right;color:#0284c7;padding:7px;">RS ${Math.round(d.cost).toLocaleString()}</td>
+          <td style="border:1px solid #cbd5e1;text-align:right;color:#dc2626;padding:7px;">RS ${Math.round(d.expenses).toLocaleString()}</td>
+          <td style="border:1px solid #cbd5e1;text-align:right;color:#d97706;padding:7px;">RS ${Math.round(d.damagedLoss).toLocaleString()}</td>
+          <td style="border:1px solid #cbd5e1;text-align:right;color:#059669;font-weight:900;padding:7px;">RS ${Math.round(d.netProfit).toLocaleString()}</td>
+          <td style="border:1px solid #cbd5e1;text-align:right;font-weight:bold;padding:7px;">${d.margin.toFixed(1)}%</td>
+        </tr>
+      `).join('');
+    } else {
+      tableHeaders = `
+        <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #0f172a;">#</th>
+        <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #0f172a;">Date</th>
+        <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #0f172a;">Invoice #</th>
+        <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #0f172a;">Customer</th>
+        <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #0f172a;">Items Sold</th>
+        <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #0f172a;text-align:center;">Payment</th>
+        <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #0f172a;text-align:right;">Sale Revenue</th>
+        <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #0f172a;text-align:right;">Cost (COGS)</th>
+        <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #0f172a;text-align:right;">Gross Profit</th>
+        <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #0f172a;text-align:right;">Margin %</th>
+      `;
+      rowsHtml = profitActiveFilteredData.map((t, idx) => `
+        <tr style="background:${idx % 2 === 0 ? '#fff' : '#f8fafc'};">
+          <td style="border:1px solid #cbd5e1;text-align:center;padding:7px;">${idx + 1}</td>
+          <td style="border:1px solid #cbd5e1;padding:7px;">${new Date(t.date).toLocaleDateString('en-PK')}</td>
+          <td style="border:1px solid #cbd5e1;font-weight:bold;color:#0284c7;padding:7px;">${t.invoiceNumber}</td>
+          <td style="border:1px solid #cbd5e1;padding:7px;">${t.customerName}</td>
+          <td style="border:1px solid #cbd5e1;padding:7px;">${t.itemsSummary}</td>
+          <td style="border:1px solid #cbd5e1;text-align:center;font-weight:bold;padding:7px;">${t.paymentMethod}</td>
+          <td style="border:1px solid #cbd5e1;text-align:right;color:#047857;font-weight:bold;padding:7px;">RS ${t.revenue.toLocaleString()}</td>
+          <td style="border:1px solid #cbd5e1;text-align:right;color:#0284c7;padding:7px;">RS ${Math.round(t.cost).toLocaleString()}</td>
+          <td style="border:1px solid #cbd5e1;text-align:right;color:#059669;font-weight:900;padding:7px;">RS ${Math.round(t.profit).toLocaleString()}</td>
+          <td style="border:1px solid #cbd5e1;text-align:right;font-weight:bold;padding:7px;">${t.margin.toFixed(1)}%</td>
+        </tr>
+      `).join('');
+    }
+
+    const excelTemplate = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+        <style>
+          body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 10.5pt; }
+          .header { background: #0f172a; color: #fff; font-size: 15pt; font-weight: bold; text-align: center; height: 35px; }
+          .sub { background: #1e293b; color: #34d399; font-size: 9.5pt; text-align: center; font-weight: bold; height: 22px; }
+        </style>
+      </head>
+      <body>
+        <table>
+          <tr><td colspan="10" class="header">${shopName.toUpperCase()}</td></tr>
+          <tr><td colspan="10" class="sub">DETAILED PROFIT & LOSS REPORT - ${profitReportTab.toUpperCase()} (${dateStr})</td></tr>
+          <tr style="height:10px;"><td colspan="10" style="border:none;"></td></tr>
+          <tr>${tableHeaders}</tr>
+          ${rowsHtml || '<tr><td colspan="10" style="text-align:center;padding:12px;">No records found</td></tr>'}
+        </table>
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob([excelTemplate], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Profit_Breakdown_${profitReportTab}_${dateStr.replace(/[^a-zA-Z0-9]/g, '_')}.xls`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   // ─── Live Dynamic Breakdown Hooks for 100% Real-time Dashboard Accuracy ───
   const salesLiveBreakdown = useMemo(() => {
@@ -4228,6 +4840,34 @@ function StoreContent({ shopId }) {
         setItems(data.items);
         setCategories(data.categories);
 
+        // Auto-open product when scanned directly from mobile phone camera URL (?scan=... or ?barcode=...)
+        try {
+          const urlParams = new URLSearchParams(window.location.search);
+          const scanCode = urlParams.get('scan') || urlParams.get('barcode');
+          const productId = urlParams.get('product') || urlParams.get('item');
+          if (scanCode) {
+            const cleanCode = scanCode.trim().toLowerCase();
+            const matched = (data.items || []).find(it => 
+              String(it.barcode || '').trim().toLowerCase() === cleanCode ||
+              String(it._id || '').trim().toLowerCase() === cleanCode ||
+              String(it.id || '').trim().toLowerCase() === cleanCode
+            );
+            if (matched) {
+              setSelectedItem(matched);
+              playBarcodeBeep('success');
+              toast.success(`✨ Scanned perfume opened: ${matched.name}!`);
+            }
+          } else if (productId) {
+            const matched = (data.items || []).find(it => 
+              String(it._id || '').trim() === productId.trim() ||
+              String(it.id || '').trim() === productId.trim()
+            );
+            if (matched) {
+              setSelectedItem(matched);
+            }
+          }
+        } catch (err) {}
+
         // Compute stats from catalog items
         const now = new Date();
         const totalStock = (data.items || []).filter(i => (i.stock || 0) > 0).length;
@@ -4412,16 +5052,14 @@ function StoreContent({ shopId }) {
         let posSalesList = [];
         if (salesRes?.ok) {
           const salesData = await salesRes.json();
-          const rawSales = Array.isArray(salesData) ? salesData : [];
-          posSalesList = rawSales.filter(s => !s.shopId || String(s.shopId) === String(shopId));
+          posSalesList = Array.isArray(salesData) ? salesData : [];
         }
 
         // ── EasyPaisa / Customer Orders ──
         let checkoutOrders = [];
         if (ordersRes?.ok) {
           const ordData = await ordersRes.json();
-          const rawOrders = Array.isArray(ordData.orders) ? ordData.orders : [];
-          checkoutOrders = rawOrders.filter(o => !o.shopId || String(o.shopId) === String(shopId));
+          checkoutOrders = Array.isArray(ordData.orders) ? ordData.orders : [];
         }
 
         // ── Combine & Compute Revenue ──
@@ -4666,9 +5304,17 @@ function StoreContent({ shopId }) {
                 onChange={(e) => setSearch(e.target.value)}
                 onFocus={() => setShowSearchDropdown(true)}
                 onBlur={() => setTimeout(() => setShowSearchDropdown(false), 200)}
-                placeholder="Search products..."
-                className="w-full bg-white/95 backdrop-blur-sm rounded-full py-2.5 flex items-center pl-6 pr-14 text-sm font-black text-gray-900 placeholder:text-gray-500 focus:bg-white focus:ring-2 focus:ring-blue-400/40 hover:bg-white transition-all duration-300 shadow-[inset_0_2px_4px_rgba(0,0,0,0.08),0_4px_14px_rgba(15,23,42,0.35),0_0_10px_rgba(59,130,246,0.2),0_0_8px_rgba(245,158,11,0.12)] hover:shadow-[0_6px_20px_rgba(15,23,42,0.45),0_0_15px_rgba(59,130,246,0.3),0_0_12px_rgba(245,158,11,0.2)] border-b-2 border-blue-500 focus:border-blue-400"
+                placeholder="Search products or scan barcode..."
+                className="w-full bg-white/95 backdrop-blur-sm rounded-full py-2.5 flex items-center pl-6 pr-20 text-sm font-black text-gray-900 placeholder:text-gray-500 focus:bg-white focus:ring-2 focus:ring-blue-400/40 hover:bg-white transition-all duration-300 shadow-[inset_0_2px_4px_rgba(0,0,0,0.08),0_4px_14px_rgba(15,23,42,0.35),0_0_10px_rgba(59,130,246,0.2),0_0_8px_rgba(245,158,11,0.12)] hover:shadow-[0_6px_20px_rgba(15,23,42,0.45),0_0_15px_rgba(59,130,246,0.3),0_0_12px_rgba(245,158,11,0.2)] border-b-2 border-blue-500 focus:border-blue-400"
               />
+              <button
+                type="button"
+                onClick={() => setScannerOpen(true)}
+                title="Scan Barcode with Camera"
+                className="absolute right-12 top-1/2 -translate-y-1/2 p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-full transition-all cursor-pointer"
+              >
+                <ScanLine className="w-4 h-4" />
+              </button>
               <button className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-gradient-to-r from-[#1B3817] to-[#0F220C] hover:from-blue-600 hover:to-blue-800 text-white p-2 rounded-full transition-all duration-300 ease-out shadow-[0_4px_10px_rgba(15,23,42,0.4),0_0_8px_rgba(59,130,246,0.25)] hover:shadow-[0_6px_16px_rgba(15,23,42,0.5),0_0_12px_rgba(245,158,11,0.3)] border-t border-t-white/30 border-b-2 border-b-[#071306] hover:scale-105 active:scale-95 cursor-pointer">
                 <Search className="w-4 h-4" />
               </button>
@@ -5396,14 +6042,22 @@ function StoreContent({ shopId }) {
                   <div className="relative w-full sm:hidden z-30">
                     <input
                       type="text"
-                      placeholder="Search products..."
+                      placeholder="Search products or scan barcode..."
                       value={search}
                       onChange={e => setSearch(e.target.value)}
                       onFocus={() => setShowSearchDropdown(true)}
                       onBlur={() => setTimeout(() => setShowSearchDropdown(false), 200)}
-                      className="w-full bg-slate-800 border border-slate-700 rounded-2xl py-3 pl-10 pr-4 text-xs font-bold text-white outline-none focus:border-emerald-500 transition-colors shadow-inner"
+                      className="w-full bg-slate-800 border border-slate-700 rounded-2xl py-3 pl-10 pr-12 text-xs font-bold text-white outline-none focus:border-emerald-500 transition-colors shadow-inner"
                     />
                     <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <button
+                      type="button"
+                      onClick={() => setScannerOpen(true)}
+                      title="Scan Barcode with Camera"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-emerald-400 hover:text-white cursor-pointer"
+                    >
+                      <ScanLine className="w-4 h-4" />
+                    </button>
 
                     {/* Mobile Search Dropdown */}
                     {search.trim() && showSearchDropdown && (
@@ -5539,6 +6193,26 @@ function StoreContent({ shopId }) {
                                 </p>
                               </button>
 
+                              {/* Barcode Badge on Product Card */}
+                              {item.barcode && (
+                                <div className="flex items-center justify-between px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-[9.5px] text-slate-600 font-mono font-bold">
+                                  <span className="flex items-center gap-1 truncate">
+                                    <BarcodeIcon className="w-3 h-3 text-emerald-600 shrink-0" />
+                                    <span className="truncate">{item.barcode}</span>
+                                  </span>
+                                  {isAdminUser && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); setSelectedItem(item); }}
+                                      title="Print Barcode Label"
+                                      className="text-[8.5px] text-emerald-700 hover:text-emerald-900 font-black uppercase tracking-wider shrink-0 cursor-pointer ml-1"
+                                    >
+                                      Sticker
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+
                               {/* Low Stock / Out of Stock Banner */}
                               {itemLowStock && (
                                 <div className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 font-bold text-[10px] uppercase justify-center">
@@ -5616,8 +6290,8 @@ function StoreContent({ shopId }) {
               {/* ─── WALK-IN POS & BILLING VIEW ─── */}
               {activeView === 'walkin' && isAdminUser && (
                 <div className="space-y-4">
-                  {/* Top Banner - white/gray */}
-                  <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  {/* Top Banner - white/gray with Total Customers & Total Bills Metrics */}
+                  <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
                     <div>
                       <div className="flex items-center gap-2 text-emerald-700 text-xs font-black uppercase tracking-widest mb-0.5">
                         <Receipt className="w-4 h-4" /> Smart POS Terminal
@@ -5625,12 +6299,37 @@ function StoreContent({ shopId }) {
                       <h2 className="text-lg font-black text-gray-900 uppercase tracking-tight">POS Bill Sale &amp; Billing</h2>
                       <p className="text-gray-400 text-xs mt-0.5">Select items, enter customer details, complete sale &amp; generate bill.</p>
                     </div>
-                    <button
-                      onClick={() => { setActiveView('report-sales'); fetchShopSales(); }}
-                      className="px-4 py-2 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-xl text-xs font-bold uppercase tracking-wider text-gray-700 flex items-center gap-2 transition-all cursor-pointer"
-                    >
-                      <DollarSign className="w-4 h-4 text-emerald-600" /> Sales Report
-                    </button>
+
+                    <div className="flex items-center gap-2 flex-wrap w-full md:w-auto">
+                      {/* Total Registered Customers Pill */}
+                      <button
+                        type="button"
+                        onClick={() => { setActiveView('registered-customers'); fetchRegisteredCustomers(); }}
+                        className="flex items-center gap-2 px-3.5 py-2 bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-200 hover:border-indigo-400 rounded-xl text-xs font-black text-indigo-900 shadow-2xs transition-all cursor-pointer"
+                        title="Click to view all Registered Customers"
+                      >
+                        <Users className="w-4 h-4 text-indigo-600" />
+                        <span>Total Customers: <strong className="text-indigo-700 text-sm font-black">{registeredCustomersList.length}</strong></span>
+                      </button>
+
+                      {/* Total Bills Pill */}
+                      <button
+                        type="button"
+                        onClick={() => { setActiveView('report-sales'); fetchShopSales(); }}
+                        className="flex items-center gap-2 px-3.5 py-2 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 hover:border-emerald-400 rounded-xl text-xs font-black text-emerald-900 shadow-2xs transition-all cursor-pointer"
+                        title="Click to view Sales Report"
+                      >
+                        <Receipt className="w-4 h-4 text-emerald-600" />
+                        <span>Total Bills: <strong className="text-emerald-700 text-sm font-black">{shopSalesList.length}</strong></span>
+                      </button>
+
+                      <button
+                        onClick={() => { setActiveView('report-sales'); fetchShopSales(); }}
+                        className="px-4 py-2 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-xl text-xs font-bold uppercase tracking-wider text-gray-700 flex items-center gap-2 transition-all cursor-pointer"
+                      >
+                        <DollarSign className="w-4 h-4 text-emerald-600" /> Sales Report
+                      </button>
+                    </div>
                   </div>
 
                   {/* POS Split Screen */}
@@ -5756,6 +6455,53 @@ function StoreContent({ shopId }) {
                         </div>
 
                         <div className="p-4 space-y-4 flex-1">
+                          {/* Quick Barcode Scan Section for Walk-In POS */}
+                          <div className="p-2.5 bg-emerald-50/80 border border-emerald-200 rounded-xl space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-black text-emerald-900 uppercase tracking-wider flex items-center gap-1.5">
+                                <ScanLine className="w-3.5 h-3.5 text-emerald-700" />
+                                <span>Scan & Add to Bill</span>
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setScannerOpen(true)}
+                                className="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition-all shadow-xs cursor-pointer"
+                              >
+                                <Camera className="w-3 h-3" />
+                                <span>Camera</span>
+                              </button>
+                            </div>
+                            <form
+                              onSubmit={(e) => {
+                                e.preventDefault();
+                                if (billBarcodeQuery.trim()) {
+                                  handleBarcodeScanned(billBarcodeQuery.trim());
+                                  setBillBarcodeQuery('');
+                                }
+                              }}
+                              className="flex gap-1.5"
+                            >
+                              <div className="relative flex-1">
+                                <input
+                                  type="text"
+                                  placeholder="Scan barcode or type & Enter..."
+                                  data-barcode-input="true"
+                                  value={billBarcodeQuery}
+                                  onChange={e => setBillBarcodeQuery(e.target.value)}
+                                  className="w-full bg-white border border-emerald-300 rounded-lg py-1.5 pl-7 pr-2 text-xs font-mono font-bold text-gray-800 placeholder:text-gray-400 outline-none focus:border-emerald-500 shadow-xs"
+                                />
+                                <BarcodeIcon className="w-3.5 h-3.5 text-gray-400 absolute left-2 top-1/2 -translate-y-1/2" />
+                              </div>
+                              <button
+                                type="submit"
+                                disabled={!billBarcodeQuery.trim()}
+                                className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer"
+                              >
+                                Add
+                              </button>
+                            </form>
+                          </div>
+
                           {/* Customer Details */}
                           <div className="space-y-2">
                             <div className="flex items-center justify-between">
@@ -5767,39 +6513,79 @@ function StoreContent({ shopId }) {
                               </span>
                             </div>
 
-                            {/* Autocomplete / Existing Customer Match */}
-                            <div className="relative">
-                              <input
-                                type="text"
-                                placeholder="Customer Name (e.g. Ahmad Khan)"
-                                value={walkInCustomerName}
-                                onChange={e => {
-                                  setWalkInCustomerName(e.target.value);
-                                  setShowCustomerSuggestions(true);
-                                }}
-                                onFocus={() => setShowCustomerSuggestions(true)}
-                                className="w-full bg-gray-50 border border-gray-300 rounded-xl px-3 py-2 text-xs font-bold text-gray-800 outline-none focus:border-emerald-500 transition-colors"
-                              />
+                            {/* Autocomplete / Existing Customer Search & Inputs */}
+                            <div className="space-y-2 relative">
+                              {/* Customer Name */}
+                              <div>
+                                <input
+                                  type="text"
+                                  placeholder="Customer Name (e.g. Ahmad Khan)"
+                                  value={walkInCustomerName}
+                                  onChange={e => {
+                                    setWalkInCustomerName(e.target.value);
+                                    setWalkInCustomerId(null);
+                                    setShowCustomerSuggestions(true);
+                                  }}
+                                  onFocus={() => setShowCustomerSuggestions(true)}
+                                  className="w-full bg-gray-50 border border-gray-300 rounded-xl px-3 py-2 text-xs font-bold text-gray-800 outline-none focus:border-emerald-500 transition-colors"
+                                />
+                              </div>
 
-                              {/* Customer Quick Suggestions dropdown */}
-                              {showCustomerSuggestions && walkInCustomerName.trim().length > 0 && (
+                              {/* Customer Phone */}
+                              <div>
+                                <input
+                                  type="tel"
+                                  placeholder="WhatsApp / Phone (03XXXXXXXXX)"
+                                  value={walkInCustomerPhone}
+                                  onChange={e => {
+                                    setWalkInCustomerPhone(e.target.value);
+                                    setShowCustomerSuggestions(true);
+                                  }}
+                                  onFocus={() => setShowCustomerSuggestions(true)}
+                                  className="w-full bg-gray-50 border border-gray-300 rounded-xl px-3 py-2 text-xs font-bold text-gray-800 outline-none focus:border-emerald-500 font-mono transition-colors"
+                                />
+                              </div>
+
+                              {/* Customer Unique Email */}
+                              <div>
+                                <input
+                                  type="email"
+                                  placeholder="Customer Email (Unique ID e.g. customer@gmail.com)"
+                                  value={walkInCustomerEmail}
+                                  onChange={e => {
+                                    setWalkInCustomerEmail(e.target.value);
+                                    setShowCustomerSuggestions(true);
+                                  }}
+                                  onFocus={() => setShowCustomerSuggestions(true)}
+                                  className="w-full bg-gray-50 border border-gray-300 rounded-xl px-3 py-2 text-xs font-bold text-gray-800 outline-none focus:border-emerald-500 font-mono transition-colors"
+                                />
+                              </div>
+
+                              {/* Customer Quick Suggestions dropdown (Matches Name, Phone, or Email) */}
+                              {showCustomerSuggestions && (walkInCustomerName.trim().length > 0 || walkInCustomerEmail.trim().length > 0 || walkInCustomerPhone.trim().length > 0) && (
                                 (() => {
-                                  const searchQ = walkInCustomerName.trim().toLowerCase();
-                                  const matches = (registeredCustomersList || []).filter(c => 
-                                    (c.fullName && c.fullName.toLowerCase().includes(searchQ)) ||
-                                    (c.phone && c.phone.includes(searchQ))
-                                  ).slice(0, 5);
+                                  const searchQ = (walkInCustomerName || walkInCustomerEmail || walkInCustomerPhone).trim().toLowerCase();
+                                  const matches = (registeredCustomersList || []).filter(c => {
+                                    if (!searchQ) return false;
+                                    const nameMatch = c.fullName && c.fullName.toLowerCase().includes(searchQ);
+                                    const emailMatch = c.email && c.email.toLowerCase().includes(searchQ);
+                                    const phoneMatch = c.phone && c.phone.includes(searchQ);
+                                    return nameMatch || emailMatch || phoneMatch;
+                                  }).slice(0, 6);
 
                                   if (matches.length === 0) return null;
 
                                   return (
-                                    <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-emerald-300 rounded-xl shadow-xl z-30 max-h-48 overflow-y-auto divide-y divide-gray-100 animate-in fade-in duration-150">
-                                      <div className="px-3 py-1.5 bg-emerald-50 text-[9.5px] font-black text-emerald-800 uppercase tracking-wider flex items-center justify-between">
-                                        <span>Existing Registered Customers</span>
+                                    <div className="absolute left-0 right-0 top-full mt-1 bg-white border-2 border-emerald-400 rounded-2xl shadow-2xl z-30 max-h-56 overflow-y-auto divide-y divide-gray-100 animate-in fade-in duration-150">
+                                      <div className="px-3 py-1.5 bg-emerald-600 text-[10px] font-black text-white uppercase tracking-wider flex items-center justify-between sticky top-0 z-10">
+                                        <span className="flex items-center gap-1.5">
+                                          <Users className="w-3.5 h-3.5 text-emerald-200" />
+                                          Existing Registered Customers ({matches.length})
+                                        </span>
                                         <button 
                                           type="button" 
                                           onClick={() => setShowCustomerSuggestions(false)}
-                                          className="text-gray-400 hover:text-gray-700 cursor-pointer"
+                                          className="text-white hover:text-red-200 font-bold px-1.5 py-0.5 rounded cursor-pointer"
                                         >✕</button>
                                       </div>
                                       {matches.map(cust => (
@@ -5809,16 +6595,27 @@ function StoreContent({ shopId }) {
                                           onClick={() => {
                                             setWalkInCustomerName(cust.fullName || '');
                                             if (cust.phone) setWalkInCustomerPhone(cust.phone);
+                                            if (cust.email && !cust.email.endsWith('@customer.pos')) {
+                                              setWalkInCustomerEmail(cust.email);
+                                            } else {
+                                              setWalkInCustomerEmail('');
+                                            }
+                                            setWalkInCustomerId(cust._id || cust.id);
                                             setShowCustomerSuggestions(false);
                                           }}
-                                          className="w-full text-left px-3 py-2 hover:bg-emerald-50/70 transition-colors flex items-center justify-between gap-2 cursor-pointer text-xs"
+                                          className="w-full text-left px-3 py-2.5 hover:bg-emerald-50 transition-colors flex items-center justify-between gap-2 cursor-pointer text-xs"
                                         >
-                                          <div>
-                                            <p className="font-black text-gray-900 uppercase text-xs">{cust.fullName}</p>
-                                            <p className="text-[10px] text-gray-500 font-mono">{cust.phone || cust.email || 'No phone'}</p>
+                                          <div className="space-y-0.5 min-w-0">
+                                            <p className="font-black text-gray-900 uppercase text-xs truncate">{cust.fullName}</p>
+                                            <div className="flex flex-wrap items-center gap-2 text-[10.5px] text-gray-500 font-mono">
+                                              {cust.phone && <span>📞 {cust.phone}</span>}
+                                              {cust.email && !cust.email.endsWith('@customer.pos') && (
+                                                <span className="text-emerald-700 font-bold truncate">✉️ {cust.email}</span>
+                                              )}
+                                            </div>
                                           </div>
-                                          <span className="text-[9px] font-extrabold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                                            Select
+                                          <span className="shrink-0 text-[9.5px] font-black text-emerald-700 bg-emerald-100/90 hover:bg-emerald-200 px-2.5 py-1 rounded-lg border border-emerald-300">
+                                            Select ↵
                                           </span>
                                         </button>
                                       ))}
@@ -5828,39 +6625,73 @@ function StoreContent({ shopId }) {
                               )}
                             </div>
 
-                            <input
-                              type="tel"
-                              placeholder="WhatsApp / Phone (03XXXXXXXXX)"
-                              value={walkInCustomerPhone}
-                              onChange={e => setWalkInCustomerPhone(e.target.value)}
-                              className="w-full bg-gray-50 border border-gray-300 rounded-xl px-3 py-2 text-xs font-bold text-gray-800 outline-none focus:border-emerald-500 font-mono transition-colors"
-                            />
+                            {/* Live Customer Recognition & Statement / Record Print Action */}
+                            {(() => {
+                              const qEmail = walkInCustomerEmail.trim().toLowerCase();
+                              const qPhone = walkInCustomerPhone.trim().replace(/\D/g, '');
+                              const qName = walkInCustomerName.trim().toLowerCase();
 
-                            {/* Live Badge whether matched or will be newly created */}
-                            {walkInCustomerName.trim().length > 0 && (
-                              (() => {
-                                const qName = walkInCustomerName.trim().toLowerCase();
-                                const isExisting = (registeredCustomersList || []).some(c => 
-                                  (c.fullName && c.fullName.toLowerCase() === qName) ||
-                                  (walkInCustomerPhone.trim() && c.phone && c.phone.replace(/\D/g, '') === walkInCustomerPhone.trim().replace(/\D/g, ''))
-                                );
+                              const matchedCustomer = (registeredCustomersList || []).find(c => {
+                                if (walkInCustomerId && String(c._id || c.id) === String(walkInCustomerId)) return true;
+                                if (qEmail && c.email && c.email.toLowerCase() === qEmail) return true;
+                                if (qPhone && qPhone.length >= 7 && c.phone && c.phone.replace(/\D/g, '') === qPhone) return true;
+                                if (qName && qName !== 'walk-in customer' && qName !== 'walkin customer' && c.fullName && c.fullName.toLowerCase() === qName) return true;
+                                return false;
+                              });
 
-                                if (isExisting) {
-                                  return (
-                                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 border border-emerald-200 rounded-lg text-[10px] font-bold text-emerald-800">
-                                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                                      <span>Registered Customer • Sales & ledger linked</span>
-                                    </div>
-                                  );
-                                }
+                              if (matchedCustomer) {
+                                const stats = getCustomerStats(matchedCustomer);
                                 return (
-                                  <div className="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 border border-indigo-200 rounded-lg text-[10px] font-bold text-indigo-800">
-                                    <UserPlus className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                                    <span>New Customer • Will be auto-registered in MySQL & Directory</span>
+                                  <div className="p-2.5 bg-emerald-50 border border-emerald-300 rounded-xl space-y-1.5 animate-in fade-in duration-200">
+                                    <div className="flex items-center justify-between gap-1">
+                                      <div className="flex items-center gap-1.5 text-[10.5px] font-black text-emerald-800">
+                                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                                        <span className="uppercase tracking-tight">Registered Customer • Linked</span>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => handlePrintRegisteredCustomerRecord(matchedCustomer)}
+                                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-[9.5px] font-black shadow transition-all cursor-pointer"
+                                        title="Print full official statement and transaction history for this customer"
+                                      >
+                                        <Printer className="w-3 h-3" />
+                                        <span>Print Record (پرینټ ریکارډ)</span>
+                                      </button>
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-emerald-950 font-medium">
+                                      {matchedCustomer.email && !matchedCustomer.email.endsWith('@customer.pos') && (
+                                        <span className="font-mono bg-emerald-100 text-emerald-900 px-1.5 py-0.5 rounded border border-emerald-200">
+                                          ✉️ {matchedCustomer.email}
+                                        </span>
+                                      )}
+                                      {matchedCustomer.phone && (
+                                        <span className="font-mono bg-emerald-100 text-emerald-900 px-1.5 py-0.5 rounded border border-emerald-200">
+                                          📞 {matchedCustomer.phone}
+                                        </span>
+                                      )}
+                                      <span className="font-bold text-emerald-800">
+                                        • {stats.ordersCount} previous bills ({currency} {stats.totalSpent.toLocaleString()})
+                                      </span>
+                                    </div>
                                   </div>
                                 );
-                              })()
-                            )}
+                              }
+
+                              if (qEmail || (qPhone && qPhone.length >= 7) || (qName && qName !== 'walk-in customer' && qName !== 'walkin customer')) {
+                                return (
+                                  <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-indigo-50 border border-indigo-200 rounded-lg text-[10px] font-bold text-indigo-800">
+                                    <UserPlus className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                                    <span>
+                                      {qEmail 
+                                        ? `New Customer • Will be auto-registered with unique Email: ${walkInCustomerEmail}` 
+                                        : 'New Customer • Will be auto-registered in MySQL & Directory'}
+                                    </span>
+                                  </div>
+                                );
+                              }
+
+                              return null;
+                            })()}
                           </div>
 
                           {/* Payment Method - 4 Options: Cash, Bank, Split/Partial, Credit */}
@@ -6374,15 +7205,136 @@ function StoreContent({ shopId }) {
                     </div>
                   </div>
 
+                  {/* Top 3 Customer Directory Metric Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {/* Card 1: Total Registered Customers */}
+                    <div className="bg-white border-2 border-indigo-200 rounded-2xl p-4 shadow-sm flex items-center justify-between hover:shadow-md transition-shadow">
+                      <div>
+                        <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest block">
+                          Total Customers
+                        </span>
+                        <h3 className="text-2xl font-black text-slate-900 mt-1">
+                          {registeredCustomersList.length}
+                        </h3>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase mt-0.5 block">
+                          Registered Customer Accounts
+                        </span>
+                      </div>
+                      <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl border border-indigo-100">
+                        <Users className="w-6 h-6" />
+                      </div>
+                    </div>
+
+                    {/* Card 2: Total Customer Sales / Spent */}
+                    <div className="bg-white border-2 border-emerald-200 rounded-2xl p-4 shadow-sm flex items-center justify-between hover:shadow-md transition-shadow">
+                      <div>
+                        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest block">
+                          Customer Purchases
+                        </span>
+                        <h3 className="text-2xl font-black text-emerald-700 mt-1">
+                          {currency} {registeredCustomersList.reduce((sum, c) => sum + getCustomerStats(c).totalSpent, 0).toLocaleString('en-PK')}
+                        </h3>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase mt-0.5 block">
+                          Total Sales Value
+                        </span>
+                      </div>
+                      <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl border border-emerald-100">
+                        <DollarSign className="w-6 h-6" />
+                      </div>
+                    </div>
+
+                    {/* Card 3: Total Customer Bills Placed */}
+                    <div className="bg-white border-2 border-amber-200 rounded-2xl p-4 shadow-sm flex items-center justify-between hover:shadow-md transition-shadow">
+                      <div>
+                        <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest block">
+                          Total Invoices &amp; Orders
+                        </span>
+                        <h3 className="text-2xl font-black text-amber-700 mt-1">
+                          {registeredCustomersList.reduce((sum, c) => sum + getCustomerStats(c).ordersCount, 0)} Bills
+                        </h3>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase mt-0.5 block">
+                          Lifetime POS &amp; Online Sales
+                        </span>
+                      </div>
+                      <div className="p-3 bg-amber-50 text-amber-600 rounded-2xl border border-amber-100">
+                        <Receipt className="w-6 h-6" />
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="bg-white border border-gray-200 rounded-2xl sm:rounded-3xl overflow-visible shadow-sm">
-                    <div className="p-3.5 sm:p-5 bg-gray-50 border-b border-gray-200 flex items-center justify-between gap-2 flex-wrap">
-                      <h3 className="text-xs sm:text-sm font-black text-gray-900 uppercase tracking-wider flex items-center gap-2">
-                        <Users className="w-4 h-4 text-indigo-600" />
-                        All Registered Customer Accounts ({registeredCustomersList.length})
-                      </h3>
-                      <span className="text-[9.5px] sm:text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full uppercase tracking-widest">
-                        {shop?.name || 'Shop'} Portal
-                      </span>
+                    {/* Header with Title and Mode Switcher */}
+                    <div className="p-3.5 sm:p-5 bg-gray-50 border-b border-gray-200 space-y-3">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-2">
+                          <Users className="w-5 h-5 text-indigo-600" />
+                          <div>
+                            <h3 className="text-xs sm:text-sm font-black text-gray-900 uppercase tracking-wider">
+                              Customer Directory &amp; Repeat Accounts
+                            </h3>
+                            <p className="text-[10px] text-gray-500 font-bold">
+                              پېرودونکي اداره کړئ • بار بار اخیستونکي په جلا نوملړ کې وګورئ
+                            </p>
+                          </div>
+                        </div>
+                        <span className="text-[9.5px] sm:text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full uppercase tracking-widest">
+                          {shop?.name || 'Shop'} Portal
+                        </span>
+                      </div>
+
+                      {/* Directory Filter Tabs & Search Bar */}
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pt-1">
+                        {/* Tabs: All Customers vs Repeat Buyers */}
+                        <div className="flex items-center gap-1.5 bg-gray-200/80 p-1 rounded-xl">
+                          <button
+                            type="button"
+                            onClick={() => setCustomerDirectoryTab('ALL')}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 ${
+                              customerDirectoryTab === 'ALL'
+                                ? 'bg-white text-indigo-700 shadow-sm'
+                                : 'text-gray-600 hover:text-gray-900'
+                            }`}
+                          >
+                            <Users className="w-3.5 h-3.5" />
+                            <span>ټول پېرودونکي ({registeredCustomersList.length})</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setCustomerDirectoryTab('REPEAT')}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 ${
+                              customerDirectoryTab === 'REPEAT'
+                                ? 'bg-amber-500 text-white shadow-sm ring-2 ring-amber-300'
+                                : 'text-amber-800 hover:bg-amber-100/60'
+                            }`}
+                            title="پېرودونکي چې له یوه څخه ډېر ځله یې پیرود کړی دی"
+                          >
+                            <Star className="w-3.5 h-3.5 fill-current" />
+                            <span>⭐ بار بار اخیستونکي ({registeredCustomersList.filter(c => getCustomerStats(c).ordersCount > 1).length})</span>
+                          </button>
+                        </div>
+
+                        {/* Search Input */}
+                        <div className="relative flex-1 max-w-xs">
+                          <input
+                            type="text"
+                            value={customerSearchQuery}
+                            onChange={(e) => setCustomerSearchQuery(e.target.value)}
+                            placeholder="پلټنه: نوم، موبایل، ایمیل..."
+                            className="w-full bg-white border border-gray-300 rounded-xl pl-8 pr-3 py-1.5 text-xs font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner"
+                          />
+                          <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                          {customerSearchQuery && (
+                            <button
+                              type="button"
+                              onClick={() => setCustomerSearchQuery('')}
+                              className="text-[10px] font-bold text-gray-400 hover:text-gray-600 absolute right-2.5 top-1/2 -translate-y-1/2"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </div>
 
                     {loadingCustomers ? (
@@ -6393,300 +7345,387 @@ function StoreContent({ shopId }) {
                       <div className="p-12 text-center text-gray-400 text-xs font-bold uppercase tracking-widest">
                         No registered customer accounts found for this shop yet
                       </div>
-                    ) : (
-                      <>
-                        {/* ─── MOBILE CARDS VIEW (block md:hidden) ─── */}
-                        <div className="block md:hidden p-3 space-y-3">
-                          {registeredCustomersList.map((cust, idx) => {
-                            const { totalSpent, ordersCount } = getCustomerStats(cust);
-                            const serialNo = idx + 1;
-                            const uniqueId = `CUST-${String(serialNo).padStart(4, '0')}`;
+                    ) : (() => {
+                      const displayedCustomers = registeredCustomersList.filter(cust => {
+                        const stats = getCustomerStats(cust);
+                        if (customerDirectoryTab === 'REPEAT' && stats.ordersCount <= 1) return false;
+                        if (!customerSearchQuery.trim()) return true;
+                        const q = customerSearchQuery.toLowerCase().trim();
+                        return (
+                          (cust.fullName || '').toLowerCase().includes(q) ||
+                          (cust.email || '').toLowerCase().includes(q) ||
+                          (cust.phone || '').includes(q)
+                        );
+                      });
 
-                            return (
-                              <div
-                                key={`mob_cust_${cust._id}`}
-                                className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all space-y-3"
-                              >
-                                {/* Card Top: Serial, Avatar, Name, ID & Delete */}
-                                <div className="flex items-start justify-between gap-2">
-                                  <div className="flex items-center gap-2.5 min-w-0">
-                                    <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center justify-center font-black text-sm shrink-0">
-                                      {(cust.fullName || 'C')[0].toUpperCase()}
-                                    </div>
-                                    <div className="min-w-0">
-                                      <div className="flex items-center gap-1.5 flex-wrap">
-                                        <span className="px-1.5 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded text-[10px] font-black">
-                                          #{serialNo}
-                                        </span>
-                                        <span className="font-black text-gray-900 text-sm uppercase truncate">
-                                          {cust.fullName}
-                                        </span>
-                                      </div>
-                                      <span className="text-[9px] font-black text-indigo-600 uppercase tracking-wider block mt-0.5">
-                                        {uniqueId}
-                                      </span>
-                                    </div>
-                                  </div>
+                      if (displayedCustomers.length === 0) {
+                        return (
+                          <div className="p-12 text-center text-gray-500 text-xs font-bold space-y-2">
+                            <p className="text-sm font-black text-gray-700">هیڅ ریکارډ ونه موندل شو (No Customers Match)</p>
+                            <p className="text-[11px] text-gray-400">
+                              {customerDirectoryTab === 'REPEAT' ? 'لا تر اوسه داسې پېرودونکی نشته چې ۲ یا ډېر ځله یې پیرود کړی وي.' : 'د پلټنې مطابق هیڅ پېرودونکی شتون نلري.'}
+                            </p>
+                          </div>
+                        );
+                      }
 
-                                  <div className="flex items-center gap-1.5 shrink-0">
-                                    <button
-                                      type="button"
-                                      onClick={() => handleOpenEditCustomer(cust)}
-                                      className="p-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 transition-all cursor-pointer shadow-sm"
-                                      title="Edit Customer Account"
-                                    >
-                                      <Edit2 className="w-4 h-4" />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleDeleteCustomer(cust._id, cust.fullName)}
-                                      className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 transition-all cursor-pointer shadow-sm"
-                                      title="Delete Customer Account"
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                    </button>
-                                  </div>
-                                </div>
+                      return (
+                        <>
+                          {/* ─── MOBILE CARDS VIEW (block md:hidden) ─── */}
+                          <div className="block md:hidden p-3 space-y-3">
+                            {displayedCustomers.map((cust, idx) => {
+                              const { totalSpent, ordersCount } = getCustomerStats(cust);
+                              const serialNo = idx + 1;
+                              const uniqueId = `CUST-${String(serialNo).padStart(4, '0')}`;
+                              const isRepeat = ordersCount > 1;
 
-                                {/* Contact Details */}
-                                <div className="bg-gray-50/80 rounded-xl p-2.5 border border-gray-150 space-y-1.5 text-xs">
-                                  <div className="flex items-center justify-between text-[11px]">
-                                    <span className="text-gray-400 font-bold uppercase text-[9.5px]">Email:</span>
-                                    <span className="font-bold text-gray-700 truncate max-w-[200px]">{cust.email}</span>
-                                  </div>
-                                  <div className="flex items-center justify-between text-[11px]">
-                                    <span className="text-gray-400 font-bold uppercase text-[9.5px]">Phone:</span>
-                                    <span className="font-bold text-teal-700">{cust.phone || '—'}</span>
-                                  </div>
-                                  <div className="flex items-center justify-between text-[11px]">
-                                    <span className="text-gray-400 font-bold uppercase text-[9.5px]">Registered:</span>
-                                    <span className="font-medium text-gray-500">
-                                      {new Date(cust.createdAt || Date.now()).toLocaleDateString('en-PK', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                    </span>
-                                  </div>
-                                </div>
-
-                                {/* Financial Summary 2-Col Grid */}
-                                <div className="grid grid-cols-2 gap-2">
-                                  <div className="bg-emerald-50/80 border border-emerald-200 rounded-xl p-2.5 text-center">
-                                    <span className="text-[9px] font-bold text-emerald-800 uppercase block">Total Spent</span>
-                                    <span className="text-sm font-black text-emerald-700 block mt-0.5">
-                                      {currency} {totalSpent.toLocaleString('en-PK')}
-                                    </span>
-                                  </div>
-                                  <div className="bg-amber-50/80 border border-amber-200 rounded-xl p-2.5 text-center">
-                                    <span className="text-[9px] font-bold text-amber-800 uppercase block">Orders Placed</span>
-                                    <span className="text-sm font-black text-amber-700 block mt-0.5">
-                                      {ordersCount} {ordersCount === 1 ? 'Order' : 'Orders'}
-                                    </span>
-                                  </div>
-                                </div>
-
-                                {/* Quick Action Buttons in 1 Line */}
-                                <div className="grid grid-cols-4 gap-1.5 pt-1 border-t border-gray-100">
-                                  <button
-                                    type="button"
-                                    onClick={() => handlePrintRegisteredCustomerRecord(cust, idx)}
-                                    className="py-2 px-1 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1 transition-all"
-                                    title="Print Statement"
-                                  >
-                                    <Printer className="w-3.5 h-3.5" />
-                                    <span>Print</span>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handlePrintRegisteredCustomerRecord(cust, idx)}
-                                    className="py-2 px-1 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1 transition-all"
-                                    title="PDF Statement"
-                                  >
-                                    <FileText className="w-3.5 h-3.5" />
-                                    <span>PDF</span>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleWhatsAppCustomerShare(cust, idx)}
-                                    className="py-2 px-1 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1 transition-all"
-                                    title="Share on WhatsApp"
-                                  >
-                                    <Send className="w-3.5 h-3.5" />
-                                    <span>WhatsApp</span>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleExportCustomerExcel(cust, idx)}
-                                    className="py-2 px-1 rounded-xl bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1 transition-all"
-                                    title="Export Excel"
-                                  >
-                                    <FileSpreadsheet className="w-3.5 h-3.5" />
-                                    <span>Excel</span>
-                                  </button>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-
-                        {/* ─── DESKTOP TABLE VIEW (hidden md:block) ─── */}
-                        <div className="hidden md:block overflow-x-auto min-h-[320px] pb-28 relative">
-                          {/* Backdrop overlay to close dropdown on click outside */}
-                          {activeCustMenuId && (
-                            <div
-                              className="fixed inset-0 z-30"
-                              onClick={() => setActiveCustMenuId(null)}
-                            />
-                          )}
-
-                          <table className="w-full text-left text-xs text-gray-800">
-                            <thead className="bg-gray-100 text-[10px] font-black text-gray-500 uppercase tracking-wider border-b border-gray-200">
-                              <tr>
-                                <th className="p-3.5 text-center">Serial #</th>
-                                <th className="p-3.5">Customer Name</th>
-                                <th className="p-3.5">Email Address</th>
-                                <th className="p-3.5">Phone / Contact</th>
-                                <th className="p-3.5">Total Shopping Spent</th>
-                                <th className="p-3.5">Orders Count</th>
-                                <th className="p-3.5">Registration Date</th>
-                                <th className="p-3.5 text-center">Actions</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100">
-                              {registeredCustomersList.map((cust, idx) => {
-                                const { totalSpent, ordersCount } = getCustomerStats(cust);
-                                const serialNo = idx + 1;
-                                const uniqueId = `CUST-${String(serialNo).padStart(4, '0')}`;
-                                const isMenuOpen = activeCustMenuId === cust._id;
-
-                                return (
-                                  <tr key={cust._id} className="hover:bg-gray-50/80 transition-colors">
-                                    <td className="p-3.5 text-center">
-                                      <span className="px-2.5 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-lg text-xs font-black">
-                                        #{serialNo}
-                                      </span>
-                                    </td>
-                                    <td className="p-3.5 font-black uppercase text-gray-900 flex items-center gap-2.5">
-                                      <div className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center justify-center font-black text-xs shrink-0">
+                              return (
+                                <div
+                                  key={`mob_cust_${cust._id}`}
+                                  className={`bg-white border rounded-2xl p-4 shadow-sm hover:shadow-md transition-all space-y-3 ${
+                                    isRepeat ? 'border-amber-300 ring-1 ring-amber-200/60 bg-gradient-to-b from-amber-50/20 to-white' : 'border-gray-200'
+                                  }`}
+                                >
+                                  {/* Card Top: Serial, Avatar, Name, ID & Edit/Delete */}
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm shrink-0 border ${
+                                        isRepeat ? 'bg-amber-100 text-amber-800 border-amber-300' : 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                                      }`}>
                                         {(cust.fullName || 'C')[0].toUpperCase()}
                                       </div>
-                                      <div>
-                                        <span className="block font-black text-gray-900">{cust.fullName}</span>
-                                        <span className="text-[9px] font-black text-indigo-600 uppercase tracking-widest block mt-0.5">
+                                      <div className="min-w-0">
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                          <span className="px-1.5 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded text-[10px] font-black">
+                                            #{serialNo}
+                                          </span>
+                                          <span className="font-black text-gray-900 text-sm uppercase truncate">
+                                            {cust.fullName}
+                                          </span>
+                                          {isRepeat && (
+                                            <span className="px-1.5 py-0.5 bg-amber-500 text-white rounded text-[9px] font-black uppercase flex items-center gap-0.5 shadow-2xs">
+                                              <Star className="w-2.5 h-2.5 fill-current" /> Repeat
+                                            </span>
+                                          )}
+                                        </div>
+                                        <span className="text-[9px] font-black text-indigo-600 uppercase tracking-wider block mt-0.5">
                                           {uniqueId}
                                         </span>
                                       </div>
-                                    </td>
-                                    <td className="p-3.5 font-bold text-gray-600">{cust.email}</td>
-                                    <td className="p-3.5 font-bold text-teal-700">{cust.phone || '—'}</td>
-                                    <td className="p-3.5 font-black text-emerald-700 text-sm">
-                                      {currency} {totalSpent.toLocaleString('en-PK')}
-                                    </td>
-                                    <td className="p-3.5 font-black text-amber-800">
-                                      <span className="px-2.5 py-1 bg-amber-50 border border-amber-200 rounded-lg text-xs font-bold">
-                                        {ordersCount} {ordersCount === 1 ? 'Order' : 'Orders'}
+                                    </div>
+
+                                    {/* Direct Edit & Delete Buttons */}
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleOpenEditCustomer(cust)}
+                                        className="p-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 transition-all cursor-pointer shadow-sm active:scale-95"
+                                        title="Edit Customer Details (نوم، ایمیل، فون تغیر کړئ)"
+                                      >
+                                        <Edit2 className="w-4 h-4" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeleteCustomer(cust._id, cust.fullName)}
+                                        className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 transition-all cursor-pointer shadow-sm active:scale-95"
+                                        title="Delete Customer Account (دا اکاونټ پاک کړئ)"
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  {/* Contact Details */}
+                                  <div className="bg-gray-50/80 rounded-xl p-2.5 border border-gray-150 space-y-1.5 text-xs">
+                                    <div className="flex items-center justify-between text-[11px]">
+                                      <span className="text-gray-400 font-bold uppercase text-[9.5px]">Email:</span>
+                                      <span className="font-bold text-gray-700 truncate max-w-[200px]">{cust.email}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between text-[11px]">
+                                      <span className="text-gray-400 font-bold uppercase text-[9.5px]">Phone:</span>
+                                      <span className="font-bold text-teal-700">{cust.phone || '—'}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between text-[11px]">
+                                      <span className="text-gray-400 font-bold uppercase text-[9.5px]">Registered:</span>
+                                      <span className="font-medium text-gray-500">
+                                        {new Date(cust.createdAt || Date.now()).toLocaleDateString('en-PK', { day: '2-digit', month: 'short', year: 'numeric' })}
                                       </span>
-                                    </td>
-                                    <td className="p-3.5 font-semibold text-gray-500">
-                                      {new Date(cust.createdAt || Date.now()).toLocaleDateString('en-PK', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                    </td>
-                                    <td className="p-3.5 text-center relative">
-                                      <div className="flex items-center justify-center gap-1.5">
+                                    </div>
+                                  </div>
+
+                                  {/* Financial Summary & Clickable History Button */}
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div className="bg-emerald-50/80 border border-emerald-200 rounded-xl p-2.5 text-center">
+                                      <span className="text-[9px] font-bold text-emerald-800 uppercase block">Total Spent</span>
+                                      <span className="text-sm font-black text-emerald-700 block mt-0.5">
+                                        {currency} {totalSpent.toLocaleString('en-PK')}
+                                      </span>
+                                    </div>
+
+                                    {/* Dedicated Repeat / Bills History Button */}
+                                    <button
+                                      type="button"
+                                      onClick={() => setSelectedCustomerHistory(cust)}
+                                      className={`border rounded-xl p-2.5 text-center transition-all cursor-pointer shadow-sm active:scale-95 ${
+                                        isRepeat
+                                          ? 'bg-amber-100 hover:bg-amber-200 text-amber-900 border-amber-300'
+                                          : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border-indigo-200'
+                                      }`}
+                                      title="Click to view all itemized bills & purchases of this customer"
+                                    >
+                                      <span className="text-[9px] font-black uppercase flex items-center justify-center gap-1">
+                                        {isRepeat && <Star className="w-2.5 h-2.5 fill-current text-amber-600" />}
+                                        <span>{isRepeat ? 'Repeat Bills' : 'Total Bills'}</span>
+                                      </span>
+                                      <span className="text-sm font-black block mt-0.5">
+                                        {ordersCount} {ordersCount === 1 ? 'Bill' : 'Bills'} ➔
+                                      </span>
+                                    </button>
+                                  </div>
+
+                                  {/* Quick Action Buttons */}
+                                  <div className="grid grid-cols-4 gap-1.5 pt-1 border-t border-gray-100">
+                                    <button
+                                      type="button"
+                                      onClick={() => handlePrintRegisteredCustomerRecord(cust, idx)}
+                                      className="py-2 px-1 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1 transition-all"
+                                      title="Print Statement"
+                                    >
+                                      <Printer className="w-3.5 h-3.5" />
+                                      <span>Print</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handlePrintRegisteredCustomerRecord(cust, idx)}
+                                      className="py-2 px-1 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1 transition-all"
+                                      title="PDF Statement"
+                                    >
+                                      <FileText className="w-3.5 h-3.5" />
+                                      <span>PDF</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleWhatsAppCustomerShare(cust, idx)}
+                                      className="py-2 px-1 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1 transition-all"
+                                      title="Share on WhatsApp"
+                                    >
+                                      <Send className="w-3.5 h-3.5" />
+                                      <span>WhatsApp</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleExportCustomerExcel(cust, idx)}
+                                      className="py-2 px-1 rounded-xl bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1 transition-all"
+                                      title="Export Excel"
+                                    >
+                                      <FileSpreadsheet className="w-3.5 h-3.5" />
+                                      <span>Excel</span>
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {/* ─── DESKTOP TABLE VIEW (hidden md:block) ─── */}
+                          <div className="hidden md:block overflow-x-auto min-h-[320px] pb-28 relative">
+                            {/* Backdrop overlay to close dropdown on click outside */}
+                            {activeCustMenuId && (
+                              <div
+                                className="fixed inset-0 z-30"
+                                onClick={() => setActiveCustMenuId(null)}
+                              />
+                            )}
+
+                            <table className="w-full text-left text-xs text-gray-800">
+                              <thead className="bg-gray-100 text-[10px] font-black text-gray-500 uppercase tracking-wider border-b border-gray-200">
+                                <tr>
+                                  <th className="p-3.5 text-center">Serial #</th>
+                                  <th className="p-3.5">Customer Name &amp; Status</th>
+                                  <th className="p-3.5">Email Address</th>
+                                  <th className="p-3.5">Phone / Contact</th>
+                                  <th className="p-3.5">Total Shopping Spent</th>
+                                  <th className="p-3.5 text-center">Customer Bills &amp; History</th>
+                                  <th className="p-3.5">Registration Date</th>
+                                  <th className="p-3.5 text-center">Actions</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-100">
+                                {displayedCustomers.map((cust, idx) => {
+                                  const { totalSpent, ordersCount } = getCustomerStats(cust);
+                                  const serialNo = idx + 1;
+                                  const uniqueId = `CUST-${String(serialNo).padStart(4, '0')}`;
+                                  const isMenuOpen = activeCustMenuId === cust._id;
+                                  const isRepeat = ordersCount > 1;
+
+                                  return (
+                                    <tr
+                                      key={cust._id}
+                                      className={`hover:bg-gray-50/80 transition-colors ${
+                                        isRepeat ? 'bg-amber-50/30' : ''
+                                      }`}
+                                    >
+                                      <td className="p-3.5 text-center">
+                                        <span className="px-2.5 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-lg text-xs font-black">
+                                          #{serialNo}
+                                        </span>
+                                      </td>
+                                      <td className="p-3.5 font-black uppercase text-gray-900">
+                                        <div className="flex items-center gap-2.5">
+                                          <div className={`w-8 h-8 rounded-full border flex items-center justify-center font-black text-xs shrink-0 ${
+                                            isRepeat ? 'bg-amber-100 text-amber-800 border-amber-300' : 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                                          }`}>
+                                            {(cust.fullName || 'C')[0].toUpperCase()}
+                                          </div>
+                                          <div>
+                                            <div className="flex items-center gap-1.5">
+                                              <span className="font-black text-gray-900">{cust.fullName}</span>
+                                              {isRepeat && (
+                                                <span className="px-1.5 py-0.2 bg-amber-500 text-white rounded text-[8.5px] font-black uppercase flex items-center gap-0.5">
+                                                  <Star className="w-2.5 h-2.5 fill-current" /> Repeat
+                                                </span>
+                                              )}
+                                            </div>
+                                            <span className="text-[9px] font-black text-indigo-600 uppercase tracking-widest block mt-0.5">
+                                              {uniqueId}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      </td>
+                                      <td className="p-3.5 font-bold text-gray-600">{cust.email}</td>
+                                      <td className="p-3.5 font-bold text-teal-700">{cust.phone || '—'}</td>
+                                      <td className="p-3.5 font-black text-emerald-700 text-sm">
+                                        {currency} {totalSpent.toLocaleString('en-PK')}
+                                      </td>
+                                      <td className="p-3.5 text-center">
                                         <button
                                           type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setActiveCustMenuId(isMenuOpen ? null : cust._id);
-                                          }}
-                                          className={`p-2 rounded-xl border transition-all cursor-pointer shadow-sm flex items-center justify-center active:scale-95 relative z-40 ${isMenuOpen
-                                            ? 'bg-indigo-600 text-white border-indigo-600 ring-2 ring-indigo-500/20 shadow-md'
-                                            : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border-gray-200'
-                                            }`}
-                                          title="Actions & Export Options"
+                                          onClick={() => setSelectedCustomerHistory(cust)}
+                                          className={`px-3 py-1.5 rounded-xl border text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 mx-auto transition-all cursor-pointer shadow-sm hover:scale-105 active:scale-95 ${
+                                            isRepeat
+                                              ? 'bg-amber-100 hover:bg-amber-200 text-amber-900 border-amber-300'
+                                              : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200'
+                                          }`}
+                                          title="د دې پېرودونکي ټول پیرودونه او بیلونه په جلا لیست کې وګورئ"
                                         >
-                                          <MoreVertical className="w-4 h-4" />
+                                          {isRepeat ? <Star className="w-3.5 h-3.5 fill-current text-amber-600" /> : <Receipt className="w-3.5 h-3.5" />}
+                                          <span>{ordersCount} {ordersCount === 1 ? 'Bill' : 'Bills'} (View)</span>
                                         </button>
-
-                                        <button
-                                          type="button"
-                                          onClick={() => handleDeleteCustomer(cust._id, cust.fullName)}
-                                          className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 border border-rose-200 hover:border-rose-300 transition-all cursor-pointer shadow-sm flex items-center justify-center active:scale-95"
-                                          title="Delete Customer Account"
-                                        >
-                                          <Trash2 className="w-4 h-4 text-rose-600" />
-                                        </button>
-                                      </div>
-
-                                      {/* 3-Dot Dropdown Menu */}
-                                      {isMenuOpen && (
-                                        <div
-                                          onClick={(e) => e.stopPropagation()}
-                                          className="absolute right-2 top-11 w-52 bg-white border border-gray-200 rounded-2xl shadow-2xl z-50 p-2 space-y-1 animate-in fade-in zoom-in-95 text-left"
-                                        >
+                                      </td>
+                                      <td className="p-3.5 font-semibold text-gray-500">
+                                        {new Date(cust.createdAt || Date.now()).toLocaleDateString('en-PK', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                      </td>
+                                      <td className="p-3.5 text-center relative">
+                                        <div className="flex items-center justify-center gap-1.5">
+                                          {/* Direct Edit Button */}
                                           <button
-                                            onClick={() => {
-                                              setActiveCustMenuId(null);
-                                              handlePrintRegisteredCustomerRecord(cust, idx);
-                                            }}
-                                            className="w-full px-3 py-2.5 text-xs font-bold text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                                            type="button"
+                                            onClick={() => handleOpenEditCustomer(cust)}
+                                            className="p-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 transition-all cursor-pointer shadow-sm flex items-center justify-center active:scale-95"
+                                            title="Edit Customer Details (نوم، ایمیل، موبایل سم کړئ)"
                                           >
-                                            <Printer className="w-4 h-4 text-indigo-600" />
-                                            <span>Print Statement</span>
+                                            <Edit2 className="w-4 h-4" />
                                           </button>
 
+                                          {/* Direct Delete Button */}
                                           <button
-                                            onClick={() => {
-                                              setActiveCustMenuId(null);
-                                              handlePrintRegisteredCustomerRecord(cust, idx);
-                                            }}
-                                            className="w-full px-3 py-2.5 text-xs font-bold text-gray-700 hover:bg-rose-50 hover:text-rose-700 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                                            type="button"
+                                            onClick={() => handleDeleteCustomer(cust._id, cust.fullName)}
+                                            className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 border border-rose-200 hover:border-rose-300 transition-all cursor-pointer shadow-sm flex items-center justify-center active:scale-95"
+                                            title="Delete Customer Account (اکاونټ او بیلونه پاک کړئ)"
                                           >
-                                            <FileText className="w-4 h-4 text-rose-600" />
-                                            <span>PDF Statement</span>
+                                            <Trash2 className="w-4 h-4 text-rose-600" />
                                           </button>
 
+                                          {/* 3-Dot Dropdown Trigger */}
                                           <button
-                                            onClick={() => {
-                                              setActiveCustMenuId(null);
-                                              handleWhatsAppCustomerShare(cust, idx);
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setActiveCustMenuId(isMenuOpen ? null : cust._id);
                                             }}
-                                            className="w-full px-3 py-2.5 text-xs font-bold text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                                            className={`p-2 rounded-xl border transition-all cursor-pointer shadow-sm flex items-center justify-center active:scale-95 relative z-40 ${isMenuOpen
+                                              ? 'bg-indigo-600 text-white border-indigo-600 ring-2 ring-indigo-500/20 shadow-md'
+                                              : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border-gray-200'
+                                              }`}
+                                            title="More Options (Print, PDF, WhatsApp, Excel)"
                                           >
-                                            <Send className="w-4 h-4 text-emerald-600" />
-                                            <span>WhatsApp</span>
-                                          </button>
-
-                                          <button
-                                            onClick={() => {
-                                              setActiveCustMenuId(null);
-                                              handleExportCustomerExcel(cust, idx);
-                                            }}
-                                            className="w-full px-3 py-2.5 text-xs font-bold text-gray-700 hover:bg-green-50 hover:text-green-700 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
-                                          >
-                                            <FileSpreadsheet className="w-4 h-4 text-green-600" />
-                                            <span>Excel Sheet</span>
-                                          </button>
-
-                                          <div className="border-t border-gray-100 my-1"></div>
-
-                                          <button
-                                            onClick={() => {
-                                              setActiveCustMenuId(null);
-                                              handleOpenEditCustomer(cust);
-                                            }}
-                                            className="w-full px-3 py-2.5 text-xs font-bold text-indigo-700 hover:bg-indigo-50 hover:text-indigo-800 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
-                                          >
-                                            <Edit2 className="w-4 h-4 text-indigo-600" />
-                                            <span>Edit Account</span>
+                                            <MoreVertical className="w-4 h-4" />
                                           </button>
                                         </div>
-                                      )}
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                      </>
-                    )}
+
+                                        {/* 3-Dot Dropdown Menu */}
+                                        {isMenuOpen && (
+                                          <div
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="absolute right-2 top-11 w-52 bg-white border border-gray-200 rounded-2xl shadow-2xl z-50 p-2 space-y-1 animate-in fade-in zoom-in-95 text-left"
+                                          >
+                                            <button
+                                              onClick={() => {
+                                                setActiveCustMenuId(null);
+                                                setSelectedCustomerHistory(cust);
+                                              }}
+                                              className="w-full px-3 py-2.5 text-xs font-bold text-amber-800 hover:bg-amber-50 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                                            >
+                                              <Receipt className="w-4 h-4 text-amber-600" />
+                                              <span>View All Customer Bills</span>
+                                            </button>
+
+                                            <button
+                                              onClick={() => {
+                                                setActiveCustMenuId(null);
+                                                handlePrintRegisteredCustomerRecord(cust, idx);
+                                              }}
+                                              className="w-full px-3 py-2.5 text-xs font-bold text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                                            >
+                                              <Printer className="w-4 h-4 text-indigo-600" />
+                                              <span>Print Statement</span>
+                                            </button>
+
+                                            <button
+                                              onClick={() => {
+                                                setActiveCustMenuId(null);
+                                                handlePrintRegisteredCustomerRecord(cust, idx);
+                                              }}
+                                              className="w-full px-3 py-2.5 text-xs font-bold text-gray-700 hover:bg-rose-50 hover:text-rose-700 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                                            >
+                                              <FileText className="w-4 h-4 text-rose-600" />
+                                              <span>PDF Statement</span>
+                                            </button>
+
+                                            <button
+                                              onClick={() => {
+                                                setActiveCustMenuId(null);
+                                                handleWhatsAppCustomerShare(cust, idx);
+                                              }}
+                                              className="w-full px-3 py-2.5 text-xs font-bold text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                                            >
+                                              <Send className="w-4 h-4 text-emerald-600" />
+                                              <span>WhatsApp</span>
+                                            </button>
+
+                                            <button
+                                              onClick={() => {
+                                                setActiveCustMenuId(null);
+                                                handleExportCustomerExcel(cust, idx);
+                                              }}
+                                              className="w-full px-3 py-2.5 text-xs font-bold text-gray-700 hover:bg-green-50 hover:text-green-700 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                                            >
+                                              <FileSpreadsheet className="w-4 h-4 text-green-600" />
+                                              <span>Excel Sheet</span>
+                                            </button>
+                                          </div>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
 
                   {/* ─── EDIT CUSTOMER ACCOUNT MODAL ─── */}
@@ -6922,13 +7961,13 @@ function StoreContent({ shopId }) {
                     </div>
                   </div>
 
-                  {/* Top 4 Dynamic Stat Cards (Yellow, Dark Green, Blue, Total Sales on Right) */}
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                  {/* Top 5 Dynamic Stat Cards (Cash, Bank, Credit, Customers, Total Sales) */}
+                  <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
                     {/* Card 1: Yellow - 💵 Cash Sales (In Drawer) */}
                     <div className="bg-white border-2 border-amber-400/80 rounded-2xl p-4 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-[9.5px] font-black text-amber-800 uppercase tracking-widest flex items-center gap-1">
-                          💵 Cash Sales (In Drawer)
+                          💵 Cash (In Drawer)
                         </span>
                         <div className="p-1.5 bg-amber-100 rounded-lg text-amber-700">
                           <DollarSign className="w-3.5 h-3.5" />
@@ -6946,7 +7985,7 @@ function StoreContent({ shopId }) {
                     <div className="bg-gradient-to-br from-[#071306] via-[#152F12] to-[#0A1A08] border-2 border-[#1E4D1A] text-white rounded-2xl p-4 shadow-md flex flex-col justify-between hover:shadow-lg transition-shadow">
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-[9.5px] font-black text-emerald-300 uppercase tracking-widest flex items-center gap-1">
-                          🏦 Bank / Online Sales
+                          🏦 Bank / Online
                         </span>
                         <div className="p-1.5 bg-[#152F12] rounded-lg text-emerald-300 border border-[#2E6F28]/50">
                           <Building2 className="w-3.5 h-3.5" />
@@ -6956,7 +7995,7 @@ function StoreContent({ shopId }) {
                         {currency} {Number(salesReportStats.bankSales || 0).toLocaleString('en-PK')}
                       </h4>
                       <span className="text-[10px] font-bold text-emerald-200/80 uppercase mt-1 block">
-                        Transferred to Bank Account
+                        Bank Transferred
                       </span>
                     </div>
 
@@ -6974,12 +8013,34 @@ function StoreContent({ shopId }) {
                         {currency} {Number(salesReportStats.creditSales || 0).toLocaleString('en-PK')}
                       </h4>
                       <span className="text-[10px] font-black text-blue-600 uppercase mt-1 block">
-                        Customer Outstanding Credit
+                        Outstanding Due
                       </span>
                     </div>
 
-                    {/* Card 4: Green - Total Gross Sales (Right Side) */}
-                    <div className="bg-white border-2 border-emerald-400/80 rounded-2xl p-4 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+                    {/* Card 4: Indigo - 👥 Total Customers */}
+                    <div 
+                      onClick={() => { setActiveView('registered-customers'); fetchRegisteredCustomers(); }}
+                      className="bg-white border-2 border-indigo-400/80 rounded-2xl p-4 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow cursor-pointer group"
+                      title="Click to view all registered customers"
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[9.5px] font-black text-indigo-800 uppercase tracking-widest flex items-center gap-1">
+                          👥 Total Customers
+                        </span>
+                        <div className="p-1.5 bg-indigo-100 group-hover:bg-indigo-200 rounded-lg text-indigo-700 transition-colors">
+                          <Users className="w-3.5 h-3.5" />
+                        </div>
+                      </div>
+                      <h4 className="text-xl sm:text-2xl font-black tracking-tight text-indigo-700">
+                        {registeredCustomersList.length}
+                      </h4>
+                      <span className="text-[10px] font-black text-indigo-600 uppercase mt-1 block group-hover:underline">
+                        Registered Accounts ↵
+                      </span>
+                    </div>
+
+                    {/* Card 5: Green - Total Gross Sales */}
+                    <div className="bg-white border-2 border-emerald-400/80 rounded-2xl p-4 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow col-span-2 lg:col-span-1">
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-[9.5px] font-black text-emerald-800 uppercase tracking-widest">
                           {reportTimeframe === 'DAY' ? 'Today Total Sales' : reportTimeframe === 'MONTH' ? 'Month Total Sales' : reportTimeframe === 'YEAR' ? 'Year Total Sales' : 'Total Gross Sales'}
@@ -7061,7 +8122,7 @@ function StoreContent({ shopId }) {
                               : 'bg-teal-50 text-teal-900 hover:bg-teal-100 border-teal-300'
                           }`}
                         >
-                          🌐 Online Orders ({filteredSalesForReport.filter(s => s.isOnlineOrder || s.orderSource === 'ONLINE_STOREFRONT' || s.customerId).length})
+                          🌐 Online Orders ({filteredSalesForReport.filter(s => Boolean(s.isOnlineOrder || s.orderSource === 'ONLINE_STOREFRONT')).length})
                         </button>
                       </div>
 
@@ -7093,7 +8154,7 @@ function StoreContent({ shopId }) {
                         const isBank = pMethod === 'BANK_TRANSFER' || pMethod === 'BANK' || pMethod === 'ONLINE' || pMethod === 'EASYPAISA' || (Number(s.bankPaid) > 0);
                         const isCredit = pMethod === 'CREDIT' || pMethod === 'DUE' || (Number(s.dueAmount) > 0) || s.isCredit;
                         const isCash = pMethod === 'CASH' || (Number(s.cashPaid) > 0 && !isBank && !isCredit);
-                        const isOnline = Boolean(s.isOnlineOrder || s.orderSource === 'ONLINE_STOREFRONT' || s.customerId);
+                        const isOnline = Boolean(s.isOnlineOrder || s.orderSource === 'ONLINE_STOREFRONT');
 
                         if (salesReportPaymentFilter === 'CASH') return isCash;
                         if (salesReportPaymentFilter === 'BANK') return isBank;
@@ -7117,7 +8178,7 @@ function StoreContent({ shopId }) {
                                 const cust = s.customerName || 'Walk-in Customer';
                                 const phone = s.customerPhone || '';
                                 const total = Number(s.totalAmount) || 0;
-                                const isOnline = Boolean(s.isOnlineOrder || s.orderSource === 'ONLINE_STOREFRONT' || s.customerId);
+                                const isOnline = Boolean(s.isOnlineOrder || s.orderSource === 'ONLINE_STOREFRONT');
                                 
                                 const pMethod = String(s.paymentMethod || 'CASH').toUpperCase();
                                 const isBank = pMethod === 'BANK_TRANSFER' || pMethod === 'BANK' || pMethod === 'ONLINE' || pMethod === 'EASYPAISA' || (Number(s.bankPaid) > 0);
@@ -7286,7 +8347,7 @@ function StoreContent({ shopId }) {
                                     const cust = s.customerName || 'Walk-in Customer';
                                     const phone = s.customerPhone || '';
                                     const total = Number(s.totalAmount) || 0;
-                                    const isOnline = Boolean(s.isOnlineOrder || s.orderSource === 'ONLINE_STOREFRONT' || s.customerId);
+                                    const isOnline = Boolean(s.isOnlineOrder || s.orderSource === 'ONLINE_STOREFRONT');
                                     
                                     const pMethod = String(s.paymentMethod || 'CASH').toUpperCase();
                                     const isBank = pMethod === 'BANK_TRANSFER' || pMethod === 'BANK' || pMethod === 'ONLINE' || pMethod === 'EASYPAISA' || (Number(s.bankPaid) > 0);
@@ -7962,6 +9023,510 @@ function StoreContent({ shopId }) {
                         </tfoot>
                       </table>
                     </div>
+                  </div>
+
+                  {/* ─── 4. FULLY DYNAMIC PROFIT & LOSS DETAILED LEDGER TABLE ─── */}
+                  <div className="bg-white border border-gray-200 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm space-y-5">
+                    {/* Top Controls Header */}
+                    <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 pb-4 border-b border-gray-100">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <div className="p-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-600">
+                            <Layers className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <h3 className="text-sm sm:text-base font-black text-gray-900 uppercase tracking-tight flex items-center gap-2">
+                              Detailed Profit Ledger &amp; Analytics
+                            </h3>
+                            <p className="text-[11px] text-gray-500 font-medium">
+                              Live dynamic itemized breakdown of sales revenue, product costs, gross profits &amp; profit margins.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right Header Controls: Tab Switcher & Excel Export */}
+                      <div className="flex items-center gap-2 flex-wrap w-full lg:w-auto justify-between lg:justify-end">
+                        {/* 3 View Tabs: Invoices, Products, Daily */}
+                        <div className="flex items-center bg-gray-100 p-1 rounded-xl border border-gray-200">
+                          <button
+                            onClick={() => { setProfitReportTab('transactions'); setProfitPage(1); }}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 ${
+                              profitReportTab === 'transactions'
+                                ? 'bg-white text-emerald-800 shadow-sm border border-emerald-200'
+                                : 'text-gray-600 hover:text-gray-900'
+                            }`}
+                          >
+                            <Receipt className="w-3.5 h-3.5" /> Invoices ({profitTransactionsAll.length})
+                          </button>
+                          <button
+                            onClick={() => { setProfitReportTab('products'); setProfitPage(1); }}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 ${
+                              profitReportTab === 'products'
+                                ? 'bg-white text-emerald-800 shadow-sm border border-emerald-200'
+                                : 'text-gray-600 hover:text-gray-900'
+                            }`}
+                          >
+                            <Box className="w-3.5 h-3.5" /> By Product ({profitProductsAll.length})
+                          </button>
+                          <button
+                            onClick={() => { setProfitReportTab('daily'); setProfitPage(1); }}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 ${
+                              profitReportTab === 'daily'
+                                ? 'bg-white text-emerald-800 shadow-sm border border-emerald-200'
+                                : 'text-gray-600 hover:text-gray-900'
+                            }`}
+                          >
+                            <Calendar className="w-3.5 h-3.5" /> Daily Timeline ({profitDailyAll.length})
+                          </button>
+                        </div>
+
+                        {/* Export to Excel Button */}
+                        <button
+                          onClick={handleExportProfitDetailedExcel}
+                          className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95"
+                          title="Export this ledger table to Excel"
+                        >
+                          <FileSpreadsheet className="w-4 h-4 text-emerald-600" /> Export Excel
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Search & Sorting Toolbar */}
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-gray-50/80 p-3 rounded-2xl border border-gray-200/80">
+                      <div className="relative flex-1">
+                        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <input
+                          type="text"
+                          value={profitSearchTerm}
+                          onChange={(e) => { setProfitSearchTerm(e.target.value); setProfitPage(1); }}
+                          placeholder={
+                            profitReportTab === 'products'
+                              ? 'Search by product name or category...'
+                              : profitReportTab === 'daily'
+                              ? 'Search by date (YYYY-MM-DD)...'
+                              : 'Search by invoice #, customer name, items, or cashier...'
+                          }
+                          className="w-full pl-9 pr-8 py-2 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                        />
+                        {profitSearchTerm && (
+                          <button
+                            onClick={() => { setProfitSearchTerm(''); setProfitPage(1); }}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Sort Dropdown */}
+                      <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-gray-500">
+                          <ArrowUpDown className="w-3.5 h-3.5 text-gray-400" />
+                          <span className="hidden sm:inline">Sort:</span>
+                        </div>
+                        <select
+                          value={profitSortBy}
+                          onChange={(e) => setProfitSortBy(e.target.value)}
+                          className="px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 cursor-pointer"
+                        >
+                          <option value="profit-desc">Highest Profit</option>
+                          <option value="profit-asc">Lowest Profit</option>
+                          <option value="revenue-desc">Highest Revenue</option>
+                          <option value="margin-desc">Highest Margin %</option>
+                          <option value="date-desc">Newest First</option>
+                          <option value="date-asc">Oldest First</option>
+                        </select>
+
+                        {/* Rows per page */}
+                        <select
+                          value={profitRowsPerPage}
+                          onChange={(e) => { setProfitRowsPerPage(Number(e.target.value)); setProfitPage(1); }}
+                          className="px-2.5 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-800 focus:outline-none cursor-pointer"
+                        >
+                          <option value={10}>10 rows</option>
+                          <option value={15}>15 rows</option>
+                          <option value={25}>25 rows</option>
+                          <option value={50}>50 rows</option>
+                          <option value={9999}>All rows</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Active Metrics Quick Ribbon */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
+                      <div className="bg-emerald-50/60 border border-emerald-200/70 rounded-xl p-2.5">
+                        <span className="text-[9.5px] font-black uppercase tracking-wider text-emerald-800 block">Total Revenue</span>
+                        <span className="text-sm sm:text-base font-black text-emerald-700">
+                          + {currency} {Math.round(profitActiveSummary.totalRev).toLocaleString('en-PK')}
+                        </span>
+                      </div>
+                      <div className="bg-blue-50/60 border border-blue-200/70 rounded-xl p-2.5">
+                        <span className="text-[9.5px] font-black uppercase tracking-wider text-blue-800 block">
+                          {profitReportTab === 'daily' ? 'Cost &amp; Expenses' : 'Total COGS / Cost'}
+                        </span>
+                        <span className="text-sm sm:text-base font-black text-blue-700">
+                          - {currency} {Math.round(profitActiveSummary.totalCst).toLocaleString('en-PK')}
+                        </span>
+                      </div>
+                      <div className="bg-emerald-50/80 border-2 border-emerald-300 rounded-xl p-2.5">
+                        <span className="text-[9.5px] font-black uppercase tracking-wider text-emerald-950 block">Net Profit</span>
+                        <span className={`text-sm sm:text-base font-black ${profitActiveSummary.totalPrf >= 0 ? 'text-emerald-800' : 'text-rose-600'}`}>
+                          {currency} {Math.round(profitActiveSummary.totalPrf).toLocaleString('en-PK')}
+                        </span>
+                      </div>
+                      <div className="bg-amber-50/60 border border-amber-200/70 rounded-xl p-2.5">
+                        <span className="text-[9.5px] font-black uppercase tracking-wider text-amber-800 block">Avg Profit Margin</span>
+                        <span className="text-sm sm:text-base font-black text-amber-700">
+                          {profitActiveSummary.avgMargin.toFixed(1)}%
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* TABLE / CARDS CONTAINER */}
+                    {profitActiveFilteredData.length === 0 ? (
+                      <div className="py-12 text-center bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                        <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto text-gray-400 mb-2">
+                          <Search className="w-6 h-6" />
+                        </div>
+                        <h4 className="text-sm font-black text-gray-800 uppercase tracking-tight">No Transactions Found</h4>
+                        <p className="text-xs text-gray-500 mt-1">
+                          No sales records match &quot;{profitSearchTerm}&quot; for timeframe ({reportTimeframe}).
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        {/* ─── TAB 1: INVOICE TRANSACTIONS TABLE ─── */}
+                        {profitReportTab === 'transactions' && (
+                          <div className="overflow-x-auto rounded-2xl border border-gray-200">
+                            <table className="w-full text-left text-xs text-gray-800">
+                              <thead className="bg-gray-100 text-[10px] font-black text-gray-600 uppercase tracking-wider border-b border-gray-200">
+                                <tr>
+                                  <th className="p-3 text-center">#</th>
+                                  <th className="p-3">Date / Time</th>
+                                  <th className="p-3">Invoice #</th>
+                                  <th className="p-3">Customer</th>
+                                  <th className="p-3">Items Sold</th>
+                                  <th className="p-3 text-center">Payment</th>
+                                  <th className="p-3 text-right">Revenue</th>
+                                  <th className="p-3 text-right">Cost (COGS)</th>
+                                  <th className="p-3 text-right">Gross Profit</th>
+                                  <th className="p-3 text-right">Margin %</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-100 font-bold">
+                                {profitPaginatedRows.map((t, idx) => {
+                                  const rowNo = (profitPage - 1) * profitRowsPerPage + idx + 1;
+                                  const isHighMargin = t.margin >= 25;
+                                  const isLoss = t.profit < 0;
+
+                                  return (
+                                    <tr key={t._id || idx} className="hover:bg-emerald-50/40 transition-colors">
+                                      <td className="p-3 text-center text-gray-400 font-semibold">{rowNo}</td>
+                                      <td className="p-3 text-gray-600 whitespace-nowrap">
+                                        <div>{new Date(t.date).toLocaleDateString('en-PK', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
+                                        <div className="text-[10px] text-gray-400">{new Date(t.date).toLocaleTimeString('en-PK', { hour: '2-digit', minute: '2-digit' })}</div>
+                                      </td>
+                                      <td className="p-3 whitespace-nowrap">
+                                        <span className="px-2 py-0.5 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 font-black text-[10.5px]">
+                                          {t.invoiceNumber}
+                                        </span>
+                                        {t.isOnlineOrder && (
+                                          <span className="ml-1 px-1.5 py-0.2 rounded text-[8px] bg-purple-100 text-purple-700 font-bold">ONLINE</span>
+                                        )}
+                                      </td>
+                                      <td className="p-3">
+                                        <div className="font-extrabold text-gray-900">{t.customerName}</div>
+                                        {t.customerPhone && <div className="text-[10px] text-gray-400">{t.customerPhone}</div>}
+                                      </td>
+                                      <td className="p-3 max-w-xs">
+                                        <div className="truncate text-gray-700 font-medium" title={t.itemsSummary}>
+                                          {t.itemsSummary}
+                                        </div>
+                                        <div className="text-[10px] text-gray-400">{t.itemsCount} total units</div>
+                                      </td>
+                                      <td className="p-3 text-center whitespace-nowrap">
+                                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${
+                                          t.paymentMethod === 'CASH' ? 'bg-emerald-100 text-emerald-800' :
+                                          t.paymentMethod === 'CREDIT' ? 'bg-amber-100 text-amber-800' :
+                                          'bg-sky-100 text-sky-800'
+                                        }`}>
+                                          {t.paymentMethod}
+                                        </span>
+                                      </td>
+                                      <td className="p-3 text-right font-black text-emerald-700 whitespace-nowrap">
+                                        + {currency} {Math.round(t.revenue).toLocaleString('en-PK')}
+                                      </td>
+                                      <td className="p-3 text-right font-semibold text-gray-500 whitespace-nowrap">
+                                        - {currency} {Math.round(t.cost).toLocaleString('en-PK')}
+                                      </td>
+                                      <td className="p-3 text-right font-black whitespace-nowrap">
+                                        <span className={`px-2 py-0.5 rounded-lg ${
+                                          isLoss ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100/80 text-emerald-800'
+                                        }`}>
+                                          {currency} {Math.round(t.profit).toLocaleString('en-PK')}
+                                        </span>
+                                      </td>
+                                      <td className="p-3 text-right whitespace-nowrap">
+                                        <span className={`font-black text-xs ${
+                                          isLoss ? 'text-rose-600' : isHighMargin ? 'text-emerald-700 font-black' : 'text-gray-700'
+                                        }`}>
+                                          {t.margin.toFixed(1)}%
+                                        </span>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                              <tfoot className="bg-gray-50 border-t-2 border-gray-200 font-black text-xs">
+                                <tr>
+                                  <td colSpan="6" className="p-3 text-right text-gray-700 uppercase">
+                                    Page Total ({profitPaginatedRows.length} sales):
+                                  </td>
+                                  <td className="p-3 text-right text-emerald-700 font-black">
+                                    + {currency} {Math.round(profitPaginatedRows.reduce((s, r) => s + r.revenue, 0)).toLocaleString('en-PK')}
+                                  </td>
+                                  <td className="p-3 text-right text-gray-600">
+                                    - {currency} {Math.round(profitPaginatedRows.reduce((s, r) => s + r.cost, 0)).toLocaleString('en-PK')}
+                                  </td>
+                                  <td className="p-3 text-right text-emerald-800 font-black">
+                                    {currency} {Math.round(profitPaginatedRows.reduce((s, r) => s + r.profit, 0)).toLocaleString('en-PK')}
+                                  </td>
+                                  <td className="p-3 text-right text-emerald-700 font-black">
+                                    {(() => {
+                                      const r = profitPaginatedRows.reduce((s, x) => s + x.revenue, 0);
+                                      const p = profitPaginatedRows.reduce((s, x) => s + x.profit, 0);
+                                      return r > 0 ? ((p / r) * 100).toFixed(1) + '%' : '0%';
+                                    })()}
+                                  </td>
+                                </tr>
+                              </tfoot>
+                            </table>
+                          </div>
+                        )}
+
+                        {/* ─── TAB 2: PRODUCT-WISE PROFITABILITY TABLE ─── */}
+                        {profitReportTab === 'products' && (
+                          <div className="overflow-x-auto rounded-2xl border border-gray-200">
+                            <table className="w-full text-left text-xs text-gray-800">
+                              <thead className="bg-gray-100 text-[10px] font-black text-gray-600 uppercase tracking-wider border-b border-gray-200">
+                                <tr>
+                                  <th className="p-3 text-center">#</th>
+                                  <th className="p-3">Product Name</th>
+                                  <th className="p-3">Category</th>
+                                  <th className="p-3 text-center">Invoices</th>
+                                  <th className="p-3 text-center">Units Sold</th>
+                                  <th className="p-3 text-right">Total Revenue</th>
+                                  <th className="p-3 text-right">Estimated Cost</th>
+                                  <th className="p-3 text-right">Gross Profit</th>
+                                  <th className="p-3 text-right">Margin %</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-100 font-bold">
+                                {profitPaginatedRows.map((p, idx) => {
+                                  const rowNo = (profitPage - 1) * profitRowsPerPage + idx + 1;
+                                  return (
+                                    <tr key={p.name + idx} className="hover:bg-emerald-50/40 transition-colors">
+                                      <td className="p-3 text-center text-gray-400 font-semibold">{rowNo}</td>
+                                      <td className="p-3 font-extrabold text-gray-900">
+                                        <div className="flex items-center gap-2">
+                                          <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                          {p.name}
+                                        </div>
+                                      </td>
+                                      <td className="p-3 text-gray-500 font-medium">
+                                        <span className="px-2 py-0.5 bg-gray-100 rounded-md text-[10px] font-bold">
+                                          {p.category}
+                                        </span>
+                                      </td>
+                                      <td className="p-3 text-center text-gray-600 font-bold">{p.invoicesCount}</td>
+                                      <td className="p-3 text-center">
+                                        <span className="px-2.5 py-0.5 bg-slate-100 text-slate-800 rounded-full font-black text-[10px]">
+                                          {p.unitsSold} {p.unitType || 'Units'}
+                                        </span>
+                                      </td>
+                                      <td className="p-3 text-right font-black text-emerald-700 whitespace-nowrap">
+                                        + {currency} {Math.round(p.revenue).toLocaleString('en-PK')}
+                                      </td>
+                                      <td className="p-3 text-right font-semibold text-gray-500 whitespace-nowrap">
+                                        - {currency} {Math.round(p.cost).toLocaleString('en-PK')}
+                                      </td>
+                                      <td className="p-3 text-right font-black text-emerald-800 whitespace-nowrap">
+                                        <span className="px-2 py-0.5 rounded-lg bg-emerald-100/80 text-emerald-800">
+                                          {currency} {Math.round(p.profit).toLocaleString('en-PK')}
+                                        </span>
+                                      </td>
+                                      <td className="p-3 text-right font-black text-emerald-700 whitespace-nowrap">
+                                        {p.margin.toFixed(1)}%
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                              <tfoot className="bg-gray-50 border-t-2 border-gray-200 font-black text-xs">
+                                <tr>
+                                  <td colSpan="5" className="p-3 text-right text-gray-700 uppercase">
+                                    Page Total ({profitPaginatedRows.length} Products):
+                                  </td>
+                                  <td className="p-3 text-right text-emerald-700 font-black">
+                                    + {currency} {Math.round(profitPaginatedRows.reduce((s, r) => s + r.revenue, 0)).toLocaleString('en-PK')}
+                                  </td>
+                                  <td className="p-3 text-right text-gray-600">
+                                    - {currency} {Math.round(profitPaginatedRows.reduce((s, r) => s + r.cost, 0)).toLocaleString('en-PK')}
+                                  </td>
+                                  <td className="p-3 text-right text-emerald-800 font-black">
+                                    {currency} {Math.round(profitPaginatedRows.reduce((s, r) => s + r.profit, 0)).toLocaleString('en-PK')}
+                                  </td>
+                                  <td className="p-3 text-right text-emerald-700 font-black">
+                                    {(() => {
+                                      const r = profitPaginatedRows.reduce((s, x) => s + x.revenue, 0);
+                                      const p = profitPaginatedRows.reduce((s, x) => s + x.profit, 0);
+                                      return r > 0 ? ((p / r) * 100).toFixed(1) + '%' : '0%';
+                                    })()}
+                                  </td>
+                                </tr>
+                              </tfoot>
+                            </table>
+                          </div>
+                        )}
+
+                        {/* ─── TAB 3: DAILY P&L TIMELINE TABLE ─── */}
+                        {profitReportTab === 'daily' && (
+                          <div className="overflow-x-auto rounded-2xl border border-gray-200">
+                            <table className="w-full text-left text-xs text-gray-800">
+                              <thead className="bg-gray-100 text-[10px] font-black text-gray-600 uppercase tracking-wider border-b border-gray-200">
+                                <tr>
+                                  <th className="p-3 text-center">#</th>
+                                  <th className="p-3">Date</th>
+                                  <th className="p-3 text-center">Sales Invoices</th>
+                                  <th className="p-3 text-right">Daily Revenue</th>
+                                  <th className="p-3 text-right">COGS / Purchases</th>
+                                  <th className="p-3 text-right">Shop Expenses</th>
+                                  <th className="p-3 text-right">Damaged Loss</th>
+                                  <th className="p-3 text-right">Net Profit</th>
+                                  <th className="p-3 text-right">Net Margin %</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-100 font-bold">
+                                {profitPaginatedRows.map((d, idx) => {
+                                  const rowNo = (profitPage - 1) * profitRowsPerPage + idx + 1;
+                                  const isNeg = d.netProfit < 0;
+                                  return (
+                                    <tr key={d.date + idx} className="hover:bg-emerald-50/40 transition-colors">
+                                      <td className="p-3 text-center text-gray-400 font-semibold">{rowNo}</td>
+                                      <td className="p-3 font-extrabold text-gray-900 whitespace-nowrap">
+                                        <div className="flex items-center gap-2">
+                                          <Calendar className="w-3.5 h-3.5 text-emerald-600" />
+                                          {d.date}
+                                        </div>
+                                      </td>
+                                      <td className="p-3 text-center font-bold text-gray-700">{d.invoicesCount} Bills</td>
+                                      <td className="p-3 text-right font-black text-emerald-700 whitespace-nowrap">
+                                        + {currency} {Math.round(d.revenue).toLocaleString('en-PK')}
+                                      </td>
+                                      <td className="p-3 text-right font-semibold text-blue-700 whitespace-nowrap">
+                                        - {currency} {Math.round(d.cost).toLocaleString('en-PK')}
+                                      </td>
+                                      <td className="p-3 text-right font-semibold text-rose-600 whitespace-nowrap">
+                                        - {currency} {Math.round(d.expenses).toLocaleString('en-PK')}
+                                      </td>
+                                      <td className="p-3 text-right font-semibold text-amber-700 whitespace-nowrap">
+                                        - {currency} {Math.round(d.damagedLoss).toLocaleString('en-PK')}
+                                      </td>
+                                      <td className="p-3 text-right font-black whitespace-nowrap">
+                                        <span className={`px-2 py-0.5 rounded-lg ${
+                                          isNeg ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100/90 text-emerald-800'
+                                        }`}>
+                                          {currency} {Math.round(d.netProfit).toLocaleString('en-PK')}
+                                        </span>
+                                      </td>
+                                      <td className="p-3 text-right font-black whitespace-nowrap">
+                                        <span className={isNeg ? 'text-rose-600' : 'text-emerald-700'}>
+                                          {d.margin.toFixed(1)}%
+                                        </span>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                              <tfoot className="bg-gray-50 border-t-2 border-gray-200 font-black text-xs">
+                                <tr>
+                                  <td colSpan="3" className="p-3 text-right text-gray-700 uppercase">
+                                    Page Total ({profitPaginatedRows.length} Days):
+                                  </td>
+                                  <td className="p-3 text-right text-emerald-700 font-black">
+                                    + {currency} {Math.round(profitPaginatedRows.reduce((s, r) => s + r.revenue, 0)).toLocaleString('en-PK')}
+                                  </td>
+                                  <td className="p-3 text-right text-blue-700">
+                                    - {currency} {Math.round(profitPaginatedRows.reduce((s, r) => s + r.cost, 0)).toLocaleString('en-PK')}
+                                  </td>
+                                  <td className="p-3 text-right text-rose-600">
+                                    - {currency} {Math.round(profitPaginatedRows.reduce((s, r) => s + r.expenses, 0)).toLocaleString('en-PK')}
+                                  </td>
+                                  <td className="p-3 text-right text-amber-700">
+                                    - {currency} {Math.round(profitPaginatedRows.reduce((s, r) => s + r.damagedLoss, 0)).toLocaleString('en-PK')}
+                                  </td>
+                                  <td className="p-3 text-right text-emerald-800 font-black">
+                                    {currency} {Math.round(profitPaginatedRows.reduce((s, r) => s + r.netProfit, 0)).toLocaleString('en-PK')}
+                                  </td>
+                                  <td className="p-3 text-right text-emerald-700 font-black">
+                                    {(() => {
+                                      const r = profitPaginatedRows.reduce((s, x) => s + x.revenue, 0);
+                                      const p = profitPaginatedRows.reduce((s, x) => s + x.netProfit, 0);
+                                      return r > 0 ? ((p / r) * 100).toFixed(1) + '%' : '0%';
+                                    })()}
+                                  </td>
+                                </tr>
+                              </tfoot>
+                            </table>
+                          </div>
+                        )}
+
+                        {/* Pagination Footer */}
+                        {profitTotalPages > 1 && (
+                          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-gray-100">
+                            <div className="text-xs font-bold text-gray-500">
+                              Showing Page <span className="text-gray-900 font-black">{profitPage}</span> of <span className="text-gray-900 font-black">{profitTotalPages}</span> ({profitActiveFilteredData.length} total entries)
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                onClick={() => setProfitPage(p => Math.max(1, p - 1))}
+                                disabled={profitPage === 1}
+                                className="p-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-all"
+                              >
+                                <ChevronLeft className="w-4 h-4" />
+                              </button>
+                              {Array.from({ length: Math.min(5, profitTotalPages) }, (_, i) => {
+                                let pNum = i + 1;
+                                if (profitTotalPages > 5 && profitPage > 3) {
+                                  pNum = Math.min(profitTotalPages - 4 + i, profitPage - 2 + i);
+                                }
+                                return (
+                                  <button
+                                    key={pNum}
+                                    onClick={() => setProfitPage(pNum)}
+                                    className={`w-8 h-8 rounded-lg text-xs font-black transition-all cursor-pointer ${
+                                      profitPage === pNum
+                                        ? 'bg-emerald-600 text-white shadow-sm'
+                                        : 'border border-gray-200 text-gray-700 hover:bg-gray-100'
+                                    }`}
+                                  >
+                                    {pNum}
+                                  </button>
+                                );
+                              })}
+                              <button
+                                onClick={() => setProfitPage(p => Math.min(profitTotalPages, p + 1))}
+                                disabled={profitPage === profitTotalPages}
+                                className="p-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-all"
+                              >
+                                <ChevronRight className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
                 </div>
               )}
@@ -9093,6 +10658,35 @@ function StoreContent({ shopId }) {
                 </div>
               )}
 
+              {/* Barcode Sticker Section in Details Modal */}
+              {selectedItem.barcode ? (
+                <BarcodeRenderer
+                  value={selectedItem.barcode}
+                  productName={selectedItem.name}
+                  price={selectedItem.price}
+                  shopName={shop?.name || 'Hyasire Super Store'}
+                  currency={currency}
+                  height={45}
+                  className="w-full mt-2"
+                />
+              ) : (
+                isAdminUser && (
+                  <div className="flex items-center justify-between p-2 bg-slate-100 rounded-xl border border-slate-200 text-xs mt-2">
+                    <span className="text-slate-500 font-bold flex items-center gap-1.5">
+                      <BarcodeIcon className="w-4 h-4 text-slate-400" />
+                      <span>No barcode set</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => { const item = selectedItem; setSelectedItem(null); setEditModalProduct(item); }}
+                      className="text-emerald-700 hover:text-emerald-800 font-black uppercase text-[10px] cursor-pointer"
+                    >
+                      + Add Barcode
+                    </button>
+                  </div>
+                )
+              )}
+
               {/* Action Buttons */}
               {isAdminUser ? (
                 <div className="flex items-center gap-2 pt-1">
@@ -9171,6 +10765,15 @@ function StoreContent({ shopId }) {
         shop={shop}
         onClose={() => setCompletedBill(null)}
         currency={currency}
+      />
+
+      {/* Global Camera Barcode Scanner Modal */}
+      <BarcodeScannerModal
+        isOpen={scannerOpen}
+        onClose={() => setScannerOpen(false)}
+        onScan={handleBarcodeScanned}
+        title="Scan Product Barcode"
+        subtitle="Align product barcode to camera or type code to add to bill"
       />
 
       {/* ─── ADD MANUAL EXPENSE MODAL ─── */}
@@ -9897,8 +11500,13 @@ function ShopsList() {
 export function CustomerStorefront() {
   const { shopId } = useParams();
   const { user } = useUser();
+  const hasBillParam = typeof window !== 'undefined' && Boolean(
+    new URLSearchParams(window.location.search).get('bill') || 
+    new URLSearchParams(window.location.search).get('invoice') ||
+    new URLSearchParams(window.location.search).get('sale')
+  );
 
-  const activeShopId = shopId || (user?.shopId ? String(user.shopId) : null);
+  const activeShopId = shopId || (user?.shopId ? String(user.shopId) : (hasBillParam ? '1' : null));
   if (!activeShopId) return <ShopsList />;
 
   return (

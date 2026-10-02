@@ -126,14 +126,26 @@ export async function initMySQLTables(forceRecreate = false) {
       isCompanyStock TINYINT(1) DEFAULT 0,
       images JSON,
       description TEXT,
+      barcode VARCHAR(100) DEFAULT NULL,
       mfgDate DATETIME,
       expiryDate DATETIME,
       createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
       updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       KEY idx_items_shopId (shopId),
-      KEY idx_items_category (category)
+      KEY idx_items_category (category),
+      KEY idx_items_barcode (barcode)
     ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
   `);
+
+  // Ensure barcode column exists for existing tables
+  try {
+    const [cols] = await pool.query(`SHOW COLUMNS FROM items LIKE 'barcode'`);
+    if (cols.length === 0) {
+      await pool.query(`ALTER TABLE items ADD COLUMN barcode VARCHAR(100) DEFAULT NULL, ADD INDEX idx_items_barcode (barcode)`);
+    }
+  } catch (colErr) {
+    // Ignore if column already exists or error
+  }
 
   // 6. Sales Table
   await pool.query(`
@@ -272,6 +284,11 @@ export async function initMySQLTables(forceRecreate = false) {
     if (!existingOrdCols.has('customerPhone')) await pool.query("ALTER TABLE orders ADD COLUMN `customerPhone` VARCHAR(50) DEFAULT ''");
     if (!existingOrdCols.has('customerEmail')) await pool.query("ALTER TABLE orders ADD COLUMN `customerEmail` VARCHAR(255) DEFAULT ''");
     if (!existingOrdCols.has('notes')) await pool.query("ALTER TABLE orders ADD COLUMN `notes` TEXT DEFAULT NULL");
+
+    const [salesCols] = await pool.query('SHOW COLUMNS FROM sales');
+    const existingSalesCols = new Set(salesCols.map(c => c.Field));
+    if (!existingSalesCols.has('customerId')) await pool.query("ALTER TABLE sales ADD COLUMN `customerId` INT DEFAULT NULL");
+    if (!existingSalesCols.has('customerEmail')) await pool.query("ALTER TABLE sales ADD COLUMN `customerEmail` VARCHAR(255) DEFAULT ''");
   } catch (colErr) { }
 
   // 11. EasyPaisa Orders Table (dedicated for EasyPaisa/JazzCash payments)

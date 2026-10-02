@@ -45,6 +45,41 @@ const verifyOwnerPassword = async (req, res, next) => {
   }
 };
 
+// ── Public Endpoint: Verify & View Sale Bill via Barcode / QR Scan ─────
+router.get('/public/verify/:query', async (req, res) => {
+  try {
+    const rawQuery = String(req.params.query || '').trim();
+    if (!rawQuery) {
+      return res.status(400).json({ success: false, message: 'Invoice or Serial query is required' });
+    }
+
+    const cleanSerial = rawQuery.replace(/\D/g, '');
+    let sale = null;
+
+    // 1. Try match by invoiceNumber (e.g. INV-00007)
+    sale = await Sale.findOne({ invoiceNumber: rawQuery });
+
+    // 2. Try match by serialNumber digit
+    if (!sale && cleanSerial) {
+      sale = await Sale.findOne({ serialNumber: Number(cleanSerial) });
+    }
+
+    // 3. Try match by id
+    if (!sale && !isNaN(Number(rawQuery))) {
+      sale = await Sale.findById(Number(rawQuery));
+    }
+
+    if (!sale) {
+      return res.status(404).json({ success: false, message: 'Sale invoice not found' });
+    }
+
+    res.json({ success: true, sale });
+  } catch (err) {
+    console.error('Error verifying bill:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // ── Super Admin: Get ALL sales across all shops ──────────────────────
 router.get('/all', authenticate, async (req, res) => {
   if (req.user?.role !== 'super_admin') {
@@ -434,40 +469,88 @@ router.put('/:id', authenticate, preventSuperAdmin, verifyOwnerPassword, async (
 
     const oldAmount = sale.totalAmount;
 
-    // Adjust stock based on differences
-    for (const newItem of items) {
-      const oldItem = sale.items.find(i => i.productId.toString() === newItem.productId.toString());
-      if (oldItem) {
-        const qtyDifference = newItem.quantity - oldItem.quantity;
-        if (qtyDifference !== 0) {
-          const product = await Item.findById(newItem.productId);
-          if (product) {
-            if (qtyDifference > 0 && product.stock < qtyDifference) {
-              throw new Error(`Insufficient stock for ${newItem.name}`);
+    // Adjust stock based on differences if items are provided
+    if (Array.isArray(items) && items.length > 0) {
+      for (const newItem of items) {
+        const oldItem = (sale.items || []).find(i => i.productId && newItem.productId && i.productId.toString() === newItem.productId.toString());
+        if (oldItem) {
+          const qtyDifference = (Number(newItem.quantity) || 0) - (Number(oldItem.quantity) || 0);
+          if (qtyDifference !== 0) {
+            const product = await Item.findById(newItem.productId);
+            if (product) {
+              if (qtyDifference > 0 && product.stock < qtyDifference) {
+                throw new Error(`Insufficient stock for ${newItem.name}`);
+              }
+              product.stock -= qtyDifference;
+              product.lastUpdated = new Date().toISOString().split('T')[0];
+              await product.save();
             }
-            product.stock -= qtyDifference;
-            product.lastUpdated = new Date().toISOString().split('T')[0];
-            await product.save();
           }
         }
       }
+      sale.items = items;
     }
 
-    // Update the sale record
-    sale.items = items;
-    sale.totalAmount = totalAmount;
+    // Update customer details if provided
+    if (req.body.customerName !== undefined) {
+      sale.customerName = String(req.body.customerName || '').trim();
+    }
+    if (req.body.customerPhone !== undefined) {
+      sale.customerPhone = String(req.body.customerPhone || '').trim();
+    }
+    if (req.body.customerEmail !== undefined) {
+      sale.customerEmail = String(req.body.customerEmail || '').trim().toLowerCase();
+    }
+    if (req.body.paymentMethod) {
+      sale.paymentMethod = String(req.body.paymentMethod).toUpperCase();
+    }
+    if (req.body.cashPaid !== undefined) {
+      sale.cashPaid = Number(req.body.cashPaid) || 0;
+    }
+    if (req.body.bankPaid !== undefined) {
+      sale.bankPaid = Number(req.body.bankPaid) || 0;
+    }
+    if (req.body.dueAmount !== undefined) {
+      sale.dueAmount = Number(req.body.dueAmount) || 0;
+      sale.isCredit = sale.dueAmount > 0;
+    }
+    if (totalAmount !== undefined) {
+      sale.totalAmount = Number(totalAmount) || 0;
+    }
     if (totalProfit !== undefined) {
-      sale.totalProfit = totalProfit;
+      sale.totalProfit = Number(totalProfit) || 0;
     }
     
     const updatedSale = await sale.save();
 
     // Update active CashSession
-    const activeSession = await CashSession.findOne({ status: 'open' });
-    if (activeSession) {
-      activeSession.expectedCash += (totalAmount - oldAmount);
-      activeSession.totalSales += (totalAmount - oldAmount);
-      await activeSession.save();
+    const diff = (sale.totalAmount || 0) - (oldAmount || 0);
+    if (diff !== 0) {
+      const activeSession = await CashSession.findOne({ status: 'open' });
+      if (activeSession) {
+        activeSession.expectedCash += diff;
+        activeSession.totalSales += diff;
+        await activeSession.save();
+      }
+    }
+
+    // Also update matching customer_credits row if exists
+    try {
+      await pool.query(`
+        UPDATE customer_credits 
+        SET customerName = ?, customerPhone = ?, dueBalance = ?, amountPaid = ?, totalCredit = ?
+        WHERE saleId = ? OR invoiceNumber = ?
+      `, [
+        sale.customerName,
+        sale.customerPhone,
+        sale.dueAmount,
+        (sale.cashPaid || 0) + (sale.bankPaid || 0),
+        sale.totalAmount,
+        sale._id || sale.id,
+        sale.invoiceNumber
+      ]);
+    } catch (cErr) {
+      // ignore
     }
 
     res.json(updatedSale);

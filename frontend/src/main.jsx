@@ -18,6 +18,8 @@ createRoot(document.getElementById("root")).render(
           {/* Public customer routes - no login needed */}
           <Route path="/shop" element={<CustomerStorefront />} />
           <Route path="/shop/:shopId" element={<CustomerStorefront />} />
+          <Route path="/bill/:invoice" element={<CustomerStorefront />} />
+          <Route path="/invoice/:invoice" element={<CustomerStorefront />} />
 
           {/* Admin routes - all wrapped with auth providers */}
           <Route path="/*" element={

@@ -53,7 +53,10 @@ router.get('/:shopId', async (req, res) => {
 
     const filter = { shopId: realShopId };
     if (search) {
-      filter.name = { $regex: search, $options: 'i' };
+      filter.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { barcode: { $regex: search, $options: 'i' } }
+      ];
     }
     if (category && category !== 'All') {
       filter.category = category;

@@ -21,6 +21,8 @@ export default defineConfig({
   assetsInclude: ['**/*.svg', '**/*.csv'],
 
   server: {
+    host: true, // Exposes Vite on 0.0.0.0 so phones on local Wi-Fi can scan QR code and connect
+    port: 5173,
     proxy: {
       // Forward all /api requests to the backend server
       // This makes cookies work correctly (same-origin) and avoids CORS issues

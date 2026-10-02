@@ -35,6 +35,7 @@ export default class Item extends BaseMySQLModel {
     this.description = data.description || '';
     this.mfgDate = data.mfgDate || null;
     this.expiryDate = data.expiryDate || null;
+    this.barcode = data.barcode || '';
     this.createdAt = data.createdAt || new Date();
     this.updatedAt = data.updatedAt || new Date();
   }

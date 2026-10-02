@@ -1,12 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { X, Printer, Share2, CheckCircle2, FileSpreadsheet } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Printer, Share2, CheckCircle2, FileSpreadsheet, Barcode as BarcodeIcon, Smartphone, Copy, Check } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import JsBarcode from 'jsbarcode';
+import QRCode from 'qrcode';
 import { toast } from 'sonner';
 
 export default function WalkInBillModal({ bill, shop, onClose, currency = 'RS' }) {
   const [showWhatsAppPrompt, setShowWhatsAppPrompt] = useState(false);
   const [targetPhone, setTargetPhone] = useState(bill?.customerPhone || '');
+  const [billQrUrl, setBillQrUrl] = useState('');
+  const [copiedLink, setCopiedLink] = useState(false);
+  const billBarcodeRef = useRef(null);
 
   useEffect(() => {
     if (bill?.customerPhone) {
@@ -14,21 +19,80 @@ export default function WalkInBillModal({ bill, shop, onClose, currency = 'RS' }
     }
   }, [bill]);
 
+  // Extract clean serial number & formatted invoice number
+  const rawSerial = bill?.serialNumber || (bill?.invoiceNumber ? bill.invoiceNumber.replace(/\D/g, '') : '') || String(bill?._id || Date.now()).slice(-6);
+  const serialNo = String(rawSerial);
+  const invoiceDisplay = bill?.invoiceNumber || (bill ? `INV-${serialNo.padStart(5, '0')}` : '');
+
+  // Determine the best working URL for the QR code:
+  // When running on localhost in local dev, replace "localhost" / "127.0.0.1" with the LAN IP (10.48.147.93)
+  // so mobile phone cameras scanning the QR code can directly open the project and the bill!
+  const getBillVerifyUrl = () => {
+    if (typeof window === 'undefined' || !invoiceDisplay) return '';
+    let origin = window.location.origin;
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      const port = window.location.port ? `:${window.location.port}` : '';
+      const lanHost = import.meta.env.VITE_LAN_IP || '10.48.147.93';
+      origin = `${window.location.protocol}//${lanHost}${port}`;
+    }
+    return `${origin}/shop/1?bill=${encodeURIComponent(invoiceDisplay)}`;
+  };
+
+  const billVerifyUrl = getBillVerifyUrl();
+
+  // Render barcode for the bill
+  useEffect(() => {
+    if (!bill || !billBarcodeRef.current || !invoiceDisplay) return;
+    try {
+      JsBarcode(billBarcodeRef.current, invoiceDisplay, {
+        format: "CODE128",
+        width: 1.5,
+        height: 38,
+        displayValue: true,
+        fontSize: 10,
+        font: "monospace",
+        fontOptions: "bold",
+        margin: 2,
+        background: "#ffffff",
+        lineColor: "#000000"
+      });
+    } catch (e) {
+      console.error("Bill barcode render error:", e);
+    }
+  }, [bill, invoiceDisplay]);
+
+  // Render QR code pointing to direct online digital bill
+  useEffect(() => {
+    if (!bill || !billVerifyUrl) return;
+    QRCode.toDataURL(billVerifyUrl, {
+      margin: 1,
+      width: 160,
+      errorCorrectionLevel: 'M',
+      color: { dark: '#000000', light: '#ffffff' }
+    })
+    .then(url => setBillQrUrl(url))
+    .catch(err => console.error("Bill QR error:", err));
+  }, [bill, billVerifyUrl]);
+
+  const handleCopyBillLink = () => {
+    if (!billVerifyUrl) return;
+    navigator.clipboard.writeText(billVerifyUrl);
+    setCopiedLink(true);
+    toast.success("Online digital bill link copied!");
+    setTimeout(() => setCopiedLink(false), 2000);
+  };
+
   if (!bill) return null;
 
   const saleDate = bill.saleDate ? new Date(bill.saleDate).toLocaleString() : new Date().toLocaleString();
   const customerName = bill.customerName || 'Walk-in Customer';
   const customerPhone = bill.customerPhone || '';
+  const customerEmail = bill.customerEmail || bill.customer?.email || '';
   const items = bill.items || [];
   const totalAmount = bill.totalAmount || 0;
   const shopName = shop?.name || 'Maidan Perfume Shop';
   const shopAddress = shop?.address || '';
   const shopPhone = shop?.phone || '';
-
-  // Extract clean serial number & formatted invoice number
-  const rawSerial = bill.serialNumber || (bill.invoiceNumber ? bill.invoiceNumber.replace(/\D/g, '') : '') || String(bill._id || Date.now()).slice(-6);
-  const serialNo = String(rawSerial);
-  const invoiceDisplay = bill.invoiceNumber || `INV-${serialNo.padStart(5, '0')}`;
 
   const getBranchBank = () => {
     const name = String(shopName || '').toLowerCase();
@@ -86,8 +150,8 @@ export default function WalkInBillModal({ bill, shop, onClose, currency = 'RS' }
   const createPDFDocument = () => {
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
 
-    // 1. Top Header Banner (Emerald Gradient)
-    doc.setFillColor(21, 128, 61); // Emerald #15803d
+    // 1. Top Header Banner (Monochrome Slate)
+    doc.setFillColor(30, 41, 59); // Slate #1e293b
     doc.rect(0, 0, 210, 36, 'F');
 
     // Company Name & Subtitle
@@ -104,7 +168,7 @@ export default function WalkInBillModal({ bill, shop, onClose, currency = 'RS' }
     }
 
     // Right Side: Serial Badge
-    doc.setFillColor(217, 119, 6); // Amber Gold #d97706
+    doc.setFillColor(15, 23, 42); // Dark Slate #0f172a
     doc.roundedRect(148, 8, 48, 20, 3, 3, 'F');
     doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
@@ -141,7 +205,20 @@ export default function WalkInBillModal({ bill, shop, onClose, currency = 'RS' }
     } else if (bill.paymentMethod === 'BANK_TRANSFER' || Number(bill.bankPaid) > 0) {
       paymentDesc = 'Bank Transfer (Approved)';
     }
-    doc.text(`Payment: ${paymentDesc}`, 18, 66);
+
+    const contactParts = [];
+    if (customerPhone) contactParts.push(`Phone: ${customerPhone}`);
+    if (customerEmail) contactParts.push(`Email: ${customerEmail}`);
+    if (contactParts.length > 0) {
+      doc.setFontSize(7.5);
+      doc.setTextColor(100, 116, 139);
+      doc.text(contactParts.join('  •  '), 18, 60.5);
+      doc.setFontSize(8.5);
+      doc.setTextColor(71, 85, 105);
+      doc.text(`Payment: ${paymentDesc}`, 18, 66);
+    } else {
+      doc.text(`Payment: ${paymentDesc}`, 18, 64);
+    }
 
     // Right Column
     doc.setFont('helvetica', 'bold');
@@ -171,7 +248,7 @@ export default function WalkInBillModal({ bill, shop, onClose, currency = 'RS' }
       body: tableData,
       theme: 'grid',
       headStyles: {
-        fillColor: [21, 128, 61],
+        fillColor: [30, 41, 59], // Slate-800
         textColor: [255, 255, 255],
         fontStyle: 'bold',
         fontSize: 9,
@@ -180,7 +257,7 @@ export default function WalkInBillModal({ bill, shop, onClose, currency = 'RS' }
       columnStyles: {
         0: { halign: 'center', cellWidth: 14, fontStyle: 'bold' },
         1: { halign: 'left', fontStyle: 'bold' },
-        2: { halign: 'center', cellWidth: 24, fontStyle: 'bold', textColor: [21, 128, 61] },
+        2: { halign: 'center', cellWidth: 24, fontStyle: 'bold', textColor: [15, 23, 42] },
         3: { halign: 'right', cellWidth: 38 },
         4: { halign: 'right', cellWidth: 42, fontStyle: 'bold', textColor: [15, 23, 42] }
       },
@@ -198,11 +275,11 @@ export default function WalkInBillModal({ bill, shop, onClose, currency = 'RS' }
     const finalY = (doc['lastAutoTable']?.finalY || 130) + 6;
 
     // 4. Grand Total Bar
-    doc.setFillColor(220, 252, 231); // Emerald #dcfce7
-    doc.setDrawColor(34, 197, 94); // Green #22c55e
+    doc.setFillColor(241, 245, 249); // Slate #f1f5f9
+    doc.setDrawColor(203, 213, 225); // Slate #cbd5e1
     doc.roundedRect(100, finalY, 96, 16, 2, 2, 'FD');
 
-    doc.setTextColor(21, 128, 61);
+    doc.setTextColor(15, 23, 42); // Black / dark slate #0f172a
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9.5);
     doc.text('GRAND TOTAL PAID:', 105, finalY + 10.5);
@@ -318,8 +395,8 @@ export default function WalkInBillModal({ bill, shop, onClose, currency = 'RS' }
               <td class="info-label">Customer Name:</td>
               <td class="info-val" style="font-weight: bold;">${customerName}</td>
               <td style="border:none;"></td>
-              <td class="info-label">Customer Phone:</td>
-              <td class="info-val" style="mso-number-format:'\\@'; font-weight: bold;">${customerPhone ? `="${customerPhone}"` : 'N/A'}</td>
+              <td class="info-label">Customer Phone / Email:</td>
+              <td class="info-val" style="mso-number-format:'\\@'; font-weight: bold;">${customerPhone ? `="${customerPhone}"` : ''} ${customerEmail ? `(${customerEmail})` : ''}</td>
             </tr>
             <tr>
               <td class="info-label">Store / Branch:</td>
@@ -384,6 +461,7 @@ export default function WalkInBillModal({ bill, shop, onClose, currency = 'RS' }
     text += `📅 *Date:* ${saleDate}\n`;
     text += `👤 *Customer:* ${customerName}\n`;
     if (targetPhone || customerPhone) text += `📞 *Phone:* ${targetPhone || customerPhone}\n`;
+    if (customerEmail) text += `📧 *Email:* ${customerEmail}\n`;
     text += `🏦 *Branch Bank:* ${branchBank.bank}\n`;
     text += `💳 *Account No:* ${branchBank.accountNo}\n`;
     text += `━━━━━━━━━━━━━━━━━━━━\n`;
@@ -500,18 +578,18 @@ export default function WalkInBillModal({ bill, shop, onClose, currency = 'RS' }
       const d = getItemBreakdownDetails(item);
       return `
       <tr>
-        <td style="padding:10px; border:1px solid #cbd5e1; text-align:center; vertical-align:middle;">${idx + 1}</td>
+        <td style="padding:10px; border:1px solid #cbd5e1; text-align:center; vertical-align:middle; color:#0f172a; font-weight:bold;">${idx + 1}</td>
         <td style="padding:10px; border:1px solid #cbd5e1; vertical-align:middle;">
           <div style="font-weight:900; font-size:13px; text-transform:uppercase; color:#0f172a; margin-bottom:4px;">${d.rawName}</div>
           <div style="display:flex; flex-wrap:wrap; gap:6px; font-size:10px; font-weight:800;">
-            <span style="background:#fef3c7; color:#92400e; padding:2px 7px; border-radius:4px; border:1px solid #fde68a;">📦 ${d.petis}</span>
-            <span style="background:#e0f2fe; color:#0369a1; padding:2px 7px; border-radius:4px; border:1px solid #bae6fd;">🍱 ${d.trays}</span>
-            <span style="background:#dcfce7; color:#15803d; padding:2px 7px; border-radius:4px; border:1px solid #bbf7d0;">🏷️ ${d.eggs}</span>
+            <span style="background:#f1f5f9; color:#0f172a; padding:2px 7px; border-radius:4px; border:1px solid #cbd5e1;">📦 ${d.petis}</span>
+            <span style="background:#f1f5f9; color:#0f172a; padding:2px 7px; border-radius:4px; border:1px solid #cbd5e1;">🍱 ${d.trays}</span>
+            <span style="background:#f1f5f9; color:#0f172a; padding:2px 7px; border-radius:4px; border:1px solid #cbd5e1;">🏷️ ${d.eggs}</span>
           </div>
         </td>
-        <td style="padding:10px; border:1px solid #cbd5e1; text-align:center; vertical-align:middle; font-weight:900; color:#059669;">${item.quantity}</td>
-        <td style="padding:10px; border:1px solid #cbd5e1; text-align:right; vertical-align:middle;">${currency} ${(item.price || 0).toLocaleString()}</td>
-        <td style="padding:10px; border:1px solid #cbd5e1; text-align:right; vertical-align:middle; font-weight:900;">${currency} ${((item.quantity || 1) * (item.price || 0)).toLocaleString()}</td>
+        <td style="padding:10px; border:1px solid #cbd5e1; text-align:center; vertical-align:middle; font-weight:900; color:#0f172a;">${item.quantity}</td>
+        <td style="padding:10px; border:1px solid #cbd5e1; text-align:right; vertical-align:middle; color:#0f172a;">${currency} ${(item.price || 0).toLocaleString()}</td>
+        <td style="padding:10px; border:1px solid #cbd5e1; text-align:right; vertical-align:middle; font-weight:900; color:#0f172a;">${currency} ${((item.quantity || 1) * (item.price || 0)).toLocaleString()}</td>
       </tr>
     `;
     }).join('');
@@ -523,15 +601,15 @@ export default function WalkInBillModal({ bill, shop, onClose, currency = 'RS' }
           <title>Bill Receipt - #${serialNo} (${customerName})</title>
           <style>
             body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 30px; color: #0f172a; background: #ffffff; }
-            .header { text-align: center; border-bottom: 3px double #059669; padding-bottom: 12px; margin-bottom: 20px; }
-            .header h1 { margin: 0; color: #047857; text-transform: uppercase; font-size: 22px; font-weight: 900; }
+            .header { text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 20px; }
+            .header h1 { margin: 0; color: #0f172a; text-transform: uppercase; font-size: 22px; font-weight: 900; }
             .header p { margin: 4px 0 0; color: #475569; font-weight: 800; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
-            .meta { display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; margin-bottom: 16px; background: #f8fafc; padding: 12px 16px; border-radius: 10px; border: 1px solid #e2e8f0; }
-            .serial-tag { background: #047857; color: #ffffff; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 900; }
+            .meta { display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; margin-bottom: 16px; background: #f8fafc; padding: 12px 16px; border-radius: 10px; border: 1px solid #cbd5e1; }
+            .serial-tag { background: #0f172a; color: #ffffff; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 900; }
             table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 12px; }
-            th { background: #f1f5f9; text-transform: uppercase; font-weight: 900; font-size: 10px; color: #475569; padding: 8px 10px; border: 1px solid #cbd5e1; text-align: left; }
-            .total-bar { margin-top: 16px; padding: 12px 16px; background: #ecfdf5; border: 2px solid #a7f3d0; border-radius: 10px; display: flex; justify-content: space-between; font-weight: 900; font-size: 15px; color: #047857; }
-            .bank-info { margin-top: 12px; padding: 10px 14px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; font-size: 10px; color: #92400e; font-weight: bold; }
+            th { background: #f1f5f9; text-transform: uppercase; font-weight: 900; font-size: 10px; color: #0f172a; padding: 8px 10px; border: 1px solid #cbd5e1; text-align: left; }
+            .total-bar { margin-top: 16px; padding: 12px 16px; background: #f1f5f9; border: 2px solid #cbd5e1; border-radius: 10px; display: flex; justify-content: space-between; font-weight: 900; font-size: 15px; color: #0f172a; }
+            .bank-info { margin-top: 12px; padding: 10px 14px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 10px; color: #0f172a; font-weight: bold; }
             .footer { margin-top: 40px; display: flex; justify-content: space-between; font-size: 10px; font-weight: 800; color: #64748b; }
             .sign { border-top: 2px solid #cbd5e1; width: 180px; text-align: center; padding-top: 6px; }
           </style>
@@ -543,8 +621,9 @@ export default function WalkInBillModal({ bill, shop, onClose, currency = 'RS' }
           </div>
           <div class="meta">
             <div>
-              <span style="color:#059669; text-transform:uppercase;">Customer:</span> <strong style="font-size:13px;">${customerName}</strong><br/>
+              <span style="color:#0f172a; text-transform:uppercase; font-weight:800;">Customer:</span> <strong style="font-size:13px; color:#0f172a;">${customerName}</strong><br/>
               ${customerPhone ? `<span>Phone: ${customerPhone}</span><br/>` : ''}
+              ${customerEmail ? `<span>Email: ${customerEmail}</span><br/>` : ''}
               <span>Payment: ${bill.paymentMethod === 'CREDIT' || bill.dueAmount > 0 || bill.isCredit ? 'Credit (Due Balance)' : (bill.paymentMethod === 'BANK_TRANSFER' || bill.paymentMethod === 'ONLINE' || bill.paymentMethod === 'BANK' ? 'Bank Transfer' : 'Cash Paid')}</span>
             </div>
             <div style="text-align:right;">
@@ -578,6 +657,28 @@ export default function WalkInBillModal({ bill, shop, onClose, currency = 'RS' }
             <span>${currency} ${totalAmount.toLocaleString('en-PK')}</span>
           </div>
 
+          <!-- Official Smart Bill Verification Barcode & QR Code on printed receipt -->
+          <div style="margin-top: 18px; padding: 12px 16px; border: 1.5px dashed #cbd5e1; border-radius: 10px; background: #f8fafc; display: flex; align-items: center; justify-content: space-between;">
+            <div>
+              <div style="background:#fff; padding:4px 8px; border-radius:6px; border:1px solid #cbd5e1; display:inline-block;">
+                ${billBarcodeRef.current ? billBarcodeRef.current.outerHTML : ''}
+              </div>
+              <div style="font-size: 9px; font-weight: 800; font-family: monospace; color: #475569; margin-top: 4px;">
+                OFFICIAL INVOICE: ${invoiceDisplay} (SERIAL: #${serialNo})
+              </div>
+              <div style="font-size: 8px; color: #64748b; margin-top: 1px;">
+                Valid for Returns, Warranty & Verification
+              </div>
+            </div>
+            ${billQrUrl ? `
+            <div style="text-align: center; margin-left: 14px;">
+              <img src="${billQrUrl}" style="width: 70px; height: 70px; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff; padding: 2px;" />
+              <div style="font-size: 7.5px; font-weight: 900; color: #0f172a; text-transform: uppercase; margin-top: 3px;">
+                📱 Scan To View Online
+              </div>
+            </div>` : ''}
+          </div>
+
           <div class="footer">
             <div class="sign">Customer Signature</div>
             <div class="sign">Maidan Perfume Shop Stamp</div>
@@ -593,90 +694,98 @@ export default function WalkInBillModal({ bill, shop, onClose, currency = 'RS' }
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="bg-white border border-slate-200 rounded-[2rem] w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[90vh] text-slate-900">
+      <div className="bg-slate-100 border border-slate-300 rounded-[2rem] w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[90vh] text-slate-900">
 
         {/* Header */}
-        <div className="p-4 sm:p-5 bg-white flex items-center justify-between border-b border-slate-200">
+        <div className="p-4 sm:p-5 bg-slate-100 flex items-center justify-between border-b border-slate-300">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-emerald-500/20 rounded-xl border border-emerald-400/30">
-              <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+            <div className="p-2 bg-white rounded-xl border border-slate-300 shadow-xs">
+              <CheckCircle2 className="w-5 h-5 text-slate-900" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base font-black uppercase tracking-wider text-slate-900">Walk-in Sale Bill</h2>
-                <span className="px-2 py-0.5 bg-amber-400/20 text-amber-300 font-mono font-black text-xs rounded-md border border-amber-400/40">
+                <span className="px-2.5 py-0.5 bg-white text-slate-900 font-mono font-black text-xs rounded-md border border-slate-300 shadow-xs">
                   #{serialNo}
                 </span>
               </div>
-              <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest">{invoiceDisplay} • Completed</p>
+              <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">{invoiceDisplay} • COMPLETED</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-700 rounded-full bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
+            className="p-2 text-slate-600 hover:text-black rounded-full bg-white hover:bg-slate-200 border border-slate-300 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Bill Printable Area */}
-        <div className="p-4 sm:p-5 overflow-y-auto space-y-3.5 print:p-0 print:bg-white print:text-black">
+        <div className="p-4 sm:p-5 overflow-y-auto space-y-3.5 print:p-0 print:bg-white print:text-black bg-slate-100">
           {/* Shop & Customer details */}
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 space-y-2.5">
-            <div className="flex justify-between items-start border-b border-slate-200 pb-2.5">
+          <div className="bg-slate-50 border border-slate-300 rounded-2xl p-3.5 space-y-2.5 shadow-xs">
+            <div className="flex justify-between items-start border-b border-slate-300 pb-2.5">
               <div>
                 <h3 className="font-black text-sm text-slate-900 uppercase italic">{shopName}</h3>
-                {shopAddress && <p className="text-[10.5px] text-slate-400 font-medium">{shopAddress}</p>}
-                {shopPhone && <p className="text-[10.5px] text-emerald-400 font-bold">{shopPhone}</p>}
+                {shopAddress && <p className="text-[10.5px] text-slate-600 font-medium">{shopAddress}</p>}
+                {shopPhone && <p className="text-[10.5px] text-slate-900 font-bold">{shopPhone}</p>}
               </div>
               <div className="text-right">
                 <div className="flex items-center justify-end gap-1.5 mb-1">
-                  <span className="text-[10px] font-mono font-bold text-slate-400 mr-2">Invoice: #{serialNo}</span>
+                  <span className="text-[10px] font-mono font-bold text-slate-600 mr-2">Invoice: #{serialNo}</span>
                   {Number(bill.dueAmount) > 0 && (Number(bill.cashPaid) > 0 || Number(bill.bankPaid) > 0) ? (
-                    <span className="inline-block px-2.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest bg-amber-950 text-amber-300 border border-amber-600 shadow-sm">
+                    <span className="inline-block px-2.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest bg-slate-900 text-white border border-slate-700 shadow-xs">
                       ⚡ PARTIAL / CREDIT
                     </span>
                   ) : bill.paymentMethod === 'CREDIT' || Number(bill.dueAmount) >= totalAmount || bill.isCredit ? (
-                    <span className="inline-block px-2.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest bg-rose-950 text-rose-300 border border-rose-700 shadow-sm">
+                    <span className="inline-block px-2.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest bg-slate-900 text-white border border-slate-700 shadow-xs">
                       📋 CREDIT
                     </span>
                   ) : bill.paymentMethod === 'BANK_TRANSFER' || bill.paymentMethod === 'ONLINE' || bill.paymentMethod === 'BANK' || Number(bill.bankPaid) > 0 ? (
-                    <span className="inline-block px-2.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest bg-blue-950 text-blue-300 border border-blue-700 shadow-sm">
+                    <span className="inline-block px-2.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest bg-slate-900 text-white border border-slate-700 shadow-xs">
                       🏦 BANK TRANSFER
                     </span>
                   ) : (
-                    <span className="inline-block px-2.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest bg-emerald-950 text-emerald-400 border border-emerald-700 shadow-sm">
+                    <span className="inline-block px-2.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest bg-slate-900 text-white border border-slate-700 shadow-xs">
                       💵 CASH PAID
                     </span>
                   )}
                 </div>
-                <p className="text-[9px] text-slate-400">{saleDate}</p>
+                <p className="text-[9px] text-slate-600 font-medium">{saleDate}</p>
               </div>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-xl p-2 text-xs flex justify-between items-center text-slate-800 font-mono">
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Branch Bank ({branchBank.bank}):</span>
-              <span className="font-bold bg-slate-100 px-2 py-0.5 rounded border border-slate-300 text-slate-900">{branchBank.accountNo}</span>
+            {/* Branch bank: white background, black text */}
+            <div className="bg-white border border-slate-300 rounded-xl p-2.5 text-xs flex justify-between items-center text-slate-900 font-mono shadow-xs">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-600">Branch Bank ({branchBank.bank}):</span>
+              <span className="font-bold bg-slate-100 px-2.5 py-0.5 rounded border border-slate-300 text-slate-900">{branchBank.accountNo}</span>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <div>
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Customer Name</span>
-                <span className="font-bold text-slate-900 uppercase">{customerName}</span>
+            {/* Customer Details: pure white cards! */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+              <div className="bg-white border border-slate-300 rounded-xl p-2.5 shadow-xs">
+                <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider block">Customer Name</span>
+                <span className="font-black text-slate-900 uppercase truncate block">{customerName}</span>
               </div>
               {customerPhone && (
-                <div>
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">WhatsApp / Phone</span>
-                  <span className="font-bold text-emerald-700">{customerPhone}</span>
+                <div className="bg-white border border-slate-300 rounded-xl p-2.5 shadow-xs">
+                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider block">WhatsApp / Phone</span>
+                  <span className="font-black text-slate-900 block">{customerPhone}</span>
+                </div>
+              )}
+              {customerEmail && (
+                <div className="bg-white border border-slate-300 rounded-xl p-2.5 shadow-xs">
+                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider block">Customer Email</span>
+                  <span className="font-bold text-slate-900 font-mono text-[11px] truncate block">{customerEmail}</span>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Purchased Items List */}
-          <div className="border border-slate-200 rounded-2xl overflow-hidden bg-white">
+          {/* Purchased Items List: white writing area! */}
+          <div className="border border-slate-300 rounded-2xl overflow-hidden bg-white shadow-xs">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 text-[10px] font-black text-slate-600 uppercase tracking-wider border-b border-slate-200">
+              <thead className="bg-slate-100 text-[10px] font-black text-slate-700 uppercase tracking-wider border-b border-slate-300">
                 <tr>
                   <th className="p-2.5">Item</th>
                   <th className="p-2.5 text-center">Qty</th>
@@ -684,7 +793,7 @@ export default function WalkInBillModal({ bill, shop, onClose, currency = 'RS' }
                   <th className="p-2.5 text-right">Total</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 font-medium">
+              <tbody className="divide-y divide-slate-200 font-medium bg-white">
                 {items.map((item, idx) => {
                   const d = getItemBreakdownDetails(item);
                   return (
@@ -693,24 +802,24 @@ export default function WalkInBillModal({ bill, shop, onClose, currency = 'RS' }
                         <div className="space-y-1.5">
                           <p className="font-black text-slate-900 text-xs tracking-wide uppercase">{d.rawName}</p>
                           <div className="flex flex-wrap items-center gap-1.5">
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[10px] font-black">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 border border-slate-300 text-slate-900 text-[10px] font-bold">
                               <span>📦</span> {d.petis}
                             </span>
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 text-[10px] font-black">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 border border-slate-300 text-slate-900 text-[10px] font-bold">
                               <span>🍱</span> {d.trays}
                             </span>
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[10px] font-black">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 border border-slate-300 text-slate-900 text-[10px] font-bold">
                               <span>🏷️</span> {d.eggs}
                             </span>
                           </div>
                         </div>
                       </td>
                       <td className="p-3 text-center align-middle">
-                        <span className="px-2 py-1 rounded-lg bg-emerald-950/80 border border-emerald-500/30 text-emerald-400 font-mono font-black text-xs">
+                        <span className="px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-300 text-slate-900 font-mono font-black text-xs">
                           {item.quantity}
                         </span>
                       </td>
-                      <td className="p-3 text-right align-middle text-slate-600 font-mono text-xs">
+                      <td className="p-3 text-right align-middle text-slate-700 font-mono text-xs font-semibold">
                         {currency} {(item.price || 0).toLocaleString()}
                       </td>
                       <td className="p-3 text-right align-middle font-mono font-black text-slate-900 text-sm">
@@ -721,19 +830,59 @@ export default function WalkInBillModal({ bill, shop, onClose, currency = 'RS' }
                 })}
               </tbody>
             </table>
-            <div className="p-3.5 bg-slate-50 border-t border-slate-200 space-y-2">
-              <div className="flex justify-between items-center">
+
+            {/* Grand Total Area */}
+            <div className="p-3.5 bg-slate-50 border-t border-slate-300 space-y-2">
+              <div className="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-300 shadow-xs">
                 <span className="text-xs font-black text-slate-700 uppercase tracking-widest">Grand Total Amount</span>
-                <span className="text-xl font-black text-emerald-700">{currency} {totalAmount.toLocaleString()}</span>
+                <span className="text-xl font-black text-slate-900">{currency} {totalAmount.toLocaleString()}</span>
               </div>
               {Number(bill.dueAmount) > 0 && (Number(bill.cashPaid) > 0 || Number(bill.bankPaid) > 0) && (
-                <div className="flex justify-between items-center text-xs pt-2 border-t border-slate-200 bg-white p-2 rounded-xl">
-                  <span className="text-slate-600 font-bold uppercase text-[10px]">
-                    💵 Paid ({Number(bill.bankPaid) > 0 ? 'Bank' : 'Cash'}): <strong className="text-emerald-700 font-black">{currency} {(Number(bill.cashPaid) || Number(bill.bankPaid) || 0).toLocaleString()}</strong>
+                <div className="flex justify-between items-center text-xs pt-2 border-t border-slate-300 bg-white p-2.5 rounded-xl">
+                  <span className="text-slate-700 font-bold uppercase text-[10px]">
+                    💵 Paid ({Number(bill.bankPaid) > 0 ? 'Bank' : 'Cash'}): <strong className="text-slate-900 font-black">{currency} {(Number(bill.cashPaid) || Number(bill.bankPaid) || 0).toLocaleString()}</strong>
                   </span>
-                  <span className="text-rose-400 font-bold uppercase text-[10px]">
-                    ⚠️ Credit Due: <strong className="text-rose-400 font-black">{currency} {(Number(bill.dueAmount) || 0).toLocaleString()}</strong>
+                  <span className="text-slate-700 font-bold uppercase text-[10px]">
+                    ⚠️ Credit Due: <strong className="text-slate-900 font-black">{currency} {(Number(bill.dueAmount) || 0).toLocaleString()}</strong>
                   </span>
+                </div>
+              )}
+            </div>
+
+            {/* Smart Digital Receipt Barcode & QR Verification Card */}
+            <div className="bg-slate-50 border-t border-slate-300 p-3.5 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="flex-1 flex flex-col items-center sm:items-start text-center sm:text-left">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <span className="p-1 rounded-md bg-white border border-slate-300 text-slate-900">
+                    <BarcodeIcon className="w-3.5 h-3.5" />
+                  </span>
+                  <span className="text-[10px] font-black uppercase text-slate-900 tracking-wider">
+                    Official Bill Barcode
+                  </span>
+                </div>
+                <div className="bg-white p-1.5 rounded-lg border border-slate-300 shadow-2xs">
+                  <svg ref={billBarcodeRef} className="max-w-[170px] h-auto" />
+                </div>
+                <span className="text-[9px] font-mono font-bold text-slate-600 mt-1">
+                  Invoice ID: {invoiceDisplay}
+                </span>
+              </div>
+
+              {billQrUrl && (
+                <div className="flex flex-col items-center justify-center p-2.5 bg-white rounded-xl border border-slate-300 shrink-0 text-center shadow-2xs">
+                  <img src={billQrUrl} alt="Bill QR" className="w-16 h-16 rounded-md" />
+                  <span className="text-[8px] font-black text-slate-900 uppercase mt-1 flex items-center gap-0.5">
+                    <Smartphone className="w-2.5 h-2.5" />
+                    <span>Scan with Phone</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleCopyBillLink}
+                    className="text-[8.5px] text-slate-700 hover:text-black font-bold uppercase mt-1 flex items-center gap-1 cursor-pointer"
+                  >
+                    {copiedLink ? <Check className="w-2.5 h-2.5 text-slate-900" /> : <Copy className="w-2.5 h-2.5" />}
+                    <span>{copiedLink ? "Copied" : "Copy Link"}</span>
+                  </button>
                 </div>
               )}
             </div>
@@ -741,20 +890,20 @@ export default function WalkInBillModal({ bill, shop, onClose, currency = 'RS' }
         </div>
 
         {/* Footer Actions (3 Buttons: Excel, WhatsApp PDF, Print) */}
-        <div className="p-3 sm:p-4 bg-slate-50 border-t border-slate-200 grid grid-cols-3 gap-2">
+        <div className="p-3 sm:p-4 bg-slate-100 border-t border-slate-300 grid grid-cols-3 gap-2">
           {/* 1. Excel Download */}
           <button
             onClick={handleDownloadExcel}
-            className="flex items-center justify-center gap-1.5 py-2.5 px-2 bg-white hover:bg-slate-100 text-slate-800 font-bold text-[10.5px] uppercase tracking-wider rounded-xl border border-slate-300 transition-all shadow cursor-pointer active:scale-95"
+            className="flex items-center justify-center gap-1.5 py-2.5 px-2 bg-white hover:bg-slate-200 text-slate-900 font-bold text-[10.5px] uppercase tracking-wider rounded-xl border border-slate-300 transition-all shadow-xs cursor-pointer active:scale-95"
             title="Export Excel (.csv)"
           >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" /> Save Excel
+            <FileSpreadsheet className="w-3.5 h-3.5 text-slate-900" /> Save Excel
           </button>
 
           {/* 2. WhatsApp Direct PDF Share */}
           <button
             onClick={handleWhatsAppShare}
-            className="flex items-center justify-center gap-1.5 py-2.5 px-2 bg-[#25D366] hover:bg-[#1ebe57] text-white font-black text-[10.5px] uppercase tracking-wider rounded-xl border border-[#1ebe57] transition-all shadow-lg cursor-pointer active:scale-95"
+            className="flex items-center justify-center gap-1.5 py-2.5 px-2 bg-slate-800 hover:bg-black text-white font-black text-[10.5px] uppercase tracking-wider rounded-xl border border-slate-700 transition-all shadow-md cursor-pointer active:scale-95"
             title="Send PDF directly to WhatsApp"
           >
             <Share2 className="w-3.5 h-3.5 text-white" /> WhatsApp
@@ -763,38 +912,38 @@ export default function WalkInBillModal({ bill, shop, onClose, currency = 'RS' }
           {/* 3. Print Receipt */}
           <button
             onClick={handlePrint}
-            className="flex items-center justify-center gap-1.5 py-2.5 px-2 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-black text-[10.5px] uppercase tracking-wider rounded-xl border-t border-emerald-400/30 border-b-2 border-emerald-900 transition-all shadow-lg cursor-pointer active:scale-95"
+            className="flex items-center justify-center gap-1.5 py-2.5 px-2 bg-black hover:bg-slate-800 text-white font-black text-[10.5px] uppercase tracking-wider rounded-xl border border-black transition-all shadow-md cursor-pointer active:scale-95"
             title="Print Clean Bill Receipt"
           >
-            <Printer className="w-3.5 h-3.5" /> Print Bill
+            <Printer className="w-3.5 h-3.5 text-white" /> Print Bill
           </button>
         </div>
 
         {/* WhatsApp Share Options Prompt Modal */}
         {showWhatsAppPrompt && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-slate-900 border-2 border-emerald-500 rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl text-white">
-              <div className="flex items-center justify-between border-b border-slate-700 pb-3">
+            <div className="bg-white border-2 border-slate-300 rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl text-slate-900">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-3">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-[#25D366]/20 border border-[#25D366] flex items-center justify-center text-[#25D366]">
+                  <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-300 flex items-center justify-center text-slate-900">
                     <Share2 className="w-4 h-4" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-black uppercase text-white">Send PDF Bill on WhatsApp</h3>
-                    <p className="text-[10px] text-emerald-400 font-bold">Official Invoice #{serialNo}</p>
+                    <h3 className="text-sm font-black uppercase text-slate-900">Send PDF Bill on WhatsApp</h3>
+                    <p className="text-[10px] text-slate-600 font-bold">Official Invoice #{serialNo}</p>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setShowWhatsAppPrompt(false)}
-                  className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 cursor-pointer"
+                  className="text-slate-400 hover:text-slate-900 p-1 rounded-lg hover:bg-slate-100 cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10.5px] font-black uppercase text-slate-300 tracking-wider block">
+                <label className="text-[10.5px] font-black uppercase text-slate-700 tracking-wider block">
                   Customer WhatsApp Number
                 </label>
                 <div className="flex gap-2">
@@ -803,24 +952,24 @@ export default function WalkInBillModal({ bill, shop, onClose, currency = 'RS' }
                     placeholder="e.g. 03069578493"
                     value={targetPhone}
                     onChange={e => setTargetPhone(e.target.value)}
-                    className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-xs font-bold text-white outline-none focus:border-emerald-500 font-mono"
+                    className="flex-1 bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-900 outline-none focus:border-black font-mono"
                   />
                   <button
                     type="button"
                     onClick={handleDirectSharePDFFile}
-                    className="px-4 py-2.5 bg-[#25D366] hover:bg-[#1ebe57] text-white font-black text-xs uppercase rounded-xl tracking-wider transition-all cursor-pointer shadow-lg active:scale-95 flex items-center gap-1.5"
+                    className="px-4 py-2.5 bg-black hover:bg-slate-800 text-white font-black text-xs uppercase rounded-xl tracking-wider transition-all cursor-pointer shadow-md active:scale-95 flex items-center gap-1.5"
                   >
                     <Share2 className="w-3.5 h-3.5" /> Send PDF
                   </button>
                 </div>
               </div>
 
-              <div className="pt-2 border-t border-slate-800 space-y-2">
+              <div className="pt-2 border-t border-slate-200 space-y-2">
                 {/* Primary: Send PDF Bill directly */}
                 <button
                   type="button"
                   onClick={handleDirectSharePDFFile}
-                  className="w-full py-3 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-95"
+                  className="w-full py-3 bg-black hover:bg-slate-800 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-95"
                 >
                   <Share2 className="w-4 h-4" />
                   <span>Send PDF Bill</span>
@@ -831,14 +980,14 @@ export default function WalkInBillModal({ bill, shop, onClose, currency = 'RS' }
                   <button
                     type="button"
                     onClick={downloadPDF}
-                    className="py-2.5 px-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 hover:text-emerald-300 font-bold text-xs uppercase tracking-wider rounded-xl border border-slate-700 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                    className="py-2.5 px-2 bg-white hover:bg-slate-100 text-slate-900 font-bold text-xs uppercase tracking-wider rounded-xl border border-slate-300 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                   >
                     <span>📄 Save PDF</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => handleSendViaWhatsAppWeb(targetPhone)}
-                    className="py-2.5 px-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl border border-slate-700 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                    className="py-2.5 px-2 bg-white hover:bg-slate-100 text-slate-900 font-bold text-xs uppercase tracking-wider rounded-xl border border-slate-300 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                   >
                     <span>💻 WhatsApp Web</span>
                   </button>

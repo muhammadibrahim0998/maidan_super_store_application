@@ -3,15 +3,17 @@ import { useForm, Controller } from "react-hook-form";
 import CreatableSelect from 'react-select/creatable';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { productSchema } from "../schemas/productSchema";
-import { X, Upload, Loader2, Star, Box, Package, Sparkles, UserCheck, ImageIcon, Link as LinkIcon, ShieldCheck, Camera, Plus, Banknote, CreditCard, AlertCircle } from "lucide-react";
+import { X, Upload, Loader2, Star, Box, Package, Sparkles, UserCheck, ImageIcon, Link as LinkIcon, ShieldCheck, Camera, Plus, Banknote, CreditCard, AlertCircle, Barcode as BarcodeIcon, Wand2 } from "lucide-react";
 import { uploadImages } from "../services/api";
 import { toast } from "sonner";
+import { BarcodeRenderer } from "./BarcodeRenderer";
+import { BarcodeScannerModal } from "./BarcodeScannerModal";
 
 export function ProductModal({ isOpen, onClose, onSave, product, mode, categories = [] }) {
   const { register, handleSubmit, reset, setValue, getValues, watch, control, formState: { errors } } = useForm({
     resolver: zodResolver(productSchema),
     defaultValues: {
-      name: "", category: "", stock: 0, minStock: 0, price: 0, costPrice: 0,
+      name: "", category: "", barcode: "", stock: 0, minStock: 0, price: 0, costPrice: 0,
       unitType: "box", traysPerPeti: 12, eggsPerTray: 30,
       petiQuantity: 0, trayQuantity: 0, eggQuantity: 0,
       supplierName: "", totalPurchaseCost: 0, amountPaidToSupplier: 0, dueAmountToSupplier: 0, paymentMethod: "Cash",
@@ -20,6 +22,7 @@ export function ProductModal({ isOpen, onClose, onSave, product, mode, categorie
   });
 
   const [uploading, setUploading] = useState(false);
+  const [showCameraScanner, setShowCameraScanner] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [imageUrlInput, setImageUrlInput] = useState("");
   const fileInputRef = useRef(null);
@@ -27,6 +30,14 @@ export function ProductModal({ isOpen, onClose, onSave, product, mode, categorie
   const images = watch("images") || [];
   const currentCategory = watch("category");
   const unitType = watch("unitType") || "peti";
+  const watchedBarcode = watch("barcode") || "";
+
+  const generateUniqueBarcode = () => {
+    const randomDigits = Math.floor(1000000000 + Math.random() * 9000000000);
+    const code = `78${randomDigits}`;
+    setValue("barcode", code);
+    toast.success(`Generated Barcode: ${code}`);
+  };
 
   const watchedPetiQty = watch("petiQuantity") || 0;
   const watchedTrayQty = watch("trayQuantity") || 0;
@@ -113,6 +124,7 @@ export function ProductModal({ isOpen, onClose, onSave, product, mode, categorie
         reset({
           name: product.name || "",
           category: (product.category && !product.category.toLowerCase().includes('egg')) ? product.category : "",
+          barcode: product.barcode || "",
           unitType: product.unitType || "box",
           traysPerPeti: tPerP,
           eggsPerTray: ePerT,
@@ -143,6 +155,7 @@ export function ProductModal({ isOpen, onClose, onSave, product, mode, categorie
         reset({
           name: "",
           category: "",
+          barcode: "",
           unitType: "box",
           traysPerPeti: 12,
           eggsPerTray: 30,
@@ -234,6 +247,7 @@ export function ProductModal({ isOpen, onClose, onSave, product, mode, categorie
       ...data,
       name: data.name?.trim() || product?.name || "",
       category: data.category || currentCategory || product?.category || "Eggs",
+      barcode: data.barcode?.trim() || "",
       unitType: data.unitType || "peti",
       traysPerPeti: tPerPeti,
       eggsPerTray: ePerTray,
@@ -288,13 +302,13 @@ export function ProductModal({ isOpen, onClose, onSave, product, mode, categorie
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/65 backdrop-blur-xs animate-in fade-in duration-200 overflow-hidden">
       <div className="absolute inset-0" onClick={onClose} />
 
-      {/* Sleek Ultra-Clean Modal (No Scrolling, Perfectly Proportioned) */}
-      <div className="relative w-full max-w-[480px] bg-slate-50 border border-slate-300 rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden z-10 mx-auto flex flex-col text-slate-900">
+      {/* Sleek Perfectly Fitted Modal (Always Fits Viewport, Never Cuts Off Header/Footer) */}
+      <div className="relative w-full max-w-[480px] max-h-[92vh] bg-slate-50 border border-slate-300 rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden z-10 mx-auto flex flex-col text-slate-900 my-auto">
 
-        {/* Modal Header */}
+        {/* Modal Header (Pinned at Top) */}
         <div className="flex items-center justify-between px-4 py-2 border-b border-slate-200 bg-white shrink-0">
           <div className="flex items-center gap-2">
             <div className="p-1.5 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-700 shadow-xs">
@@ -316,8 +330,8 @@ export function ProductModal({ isOpen, onClose, onSave, product, mode, categorie
           </button>
         </div>
 
-        {/* Form Body */}
-        <form onSubmit={handleSubmit(onSubmit)} className="p-3 space-y-2 text-xs">
+        {/* Form Body (Scrollable so all contents fit smoothly) */}
+        <form onSubmit={handleSubmit(onSubmit)} className="p-3 space-y-2 text-xs overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-slate-300">
 
           {/* 1. PRODUCT PICTURE STRIP */}
           <div className="p-2 bg-white rounded-xl border border-slate-200 shadow-xs flex items-center justify-between gap-2">
@@ -463,6 +477,59 @@ export function ProductModal({ isOpen, onClose, onSave, product, mode, categorie
                 }}
               />
             </div>
+          </div>
+
+          {/* BARCODE SECTION */}
+          <div className="p-2 bg-slate-100/90 rounded-xl border border-slate-200 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
+                <BarcodeIcon className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Barcode / Serial Code</span>
+              </label>
+              {mode !== "view" && (
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={generateUniqueBarcode}
+                    className="px-2 py-0.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-[9px] rounded-md transition-colors flex items-center gap-1 cursor-pointer"
+                    title="Generate Random Unique Barcode"
+                  >
+                    <Wand2 className="w-2.5 h-2.5 text-indigo-600" />
+                    <span>Auto-Gen</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowCameraScanner(true)}
+                    className="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[9px] rounded-md transition-colors flex items-center gap-1 shadow-xs cursor-pointer"
+                    title="Scan Bottle with Camera"
+                  >
+                    <Camera className="w-2.5 h-2.5" />
+                    <span>Scan Bottle</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="relative">
+              <input
+                {...register("barcode")}
+                disabled={mode === "view"}
+                data-barcode-input="true"
+                className="w-full bg-white border border-slate-300 rounded-lg py-1 pl-7 pr-2 text-xs font-mono font-bold text-slate-900 outline-none focus:border-emerald-600 placeholder:text-slate-400 shadow-xs"
+                placeholder="Scan or enter product barcode..."
+              />
+              <BarcodeIcon className="w-3.5 h-3.5 text-slate-400 absolute left-2 top-1/2 -translate-y-1/2" />
+            </div>
+
+            {watchedBarcode && (
+              <BarcodeRenderer
+                value={watchedBarcode}
+                productName={watch("name")}
+                price={watchedPrice}
+                height={32}
+                className="mt-1"
+              />
+            )}
           </div>
 
           {/* 3. PRIMARY UNIT SELECTOR & PRICING */}
@@ -752,6 +819,18 @@ export function ProductModal({ isOpen, onClose, onSave, product, mode, categorie
         </div>
 
       </div>
+
+      {/* Camera Barcode Scanner for Product Modal */}
+      <BarcodeScannerModal
+        isOpen={showCameraScanner}
+        onClose={() => setShowCameraScanner(false)}
+        onScan={(code) => {
+          setValue("barcode", code);
+          toast.success(`Barcode scanned: ${code}`);
+        }}
+        title="Scan Product Barcode"
+        subtitle="Align perfume bottle or box barcode to camera"
+      />
     </div>
   );
 }

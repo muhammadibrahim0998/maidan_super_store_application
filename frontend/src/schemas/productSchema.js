@@ -8,6 +8,7 @@ export const productSchema = z.object({
   stock: z.coerce.number().optional(),
   minStock: z.coerce.number().optional(),
   description: z.string().optional().or(z.literal('')),
+  barcode: z.string().optional().or(z.literal('')),
   images: z.array(z.string()).optional(),
   mfgDate: z.any().optional(),
   expiryDate: z.any().optional(),
